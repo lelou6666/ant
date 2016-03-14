@@ -19,7 +19,6 @@
 package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
-
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -36,6 +35,7 @@ import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.PatternSet;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.Resources;
 import org.apache.tools.ant.types.resources.Restrict;
 import org.apache.tools.ant.types.resources.selectors.Exists;
 import org.apache.tools.ant.types.selectors.FileSelector;
@@ -64,7 +64,7 @@ public class Sync extends Task {
     // Similar to a fileset, but doesn't allow dir attribute to be set
     private SyncTarget syncTarget;
 
-    private Restrict resources = null;
+    private Resources resources = null;
 
     // Override Task#init
     /**
@@ -72,6 +72,7 @@ public class Sync extends Task {
      * @throws BuildException if there is a problem.
      * @see Task#init()
      */
+    @Override
     public void init()
         throws BuildException {
         // Instantiate it
@@ -97,6 +98,7 @@ public class Sync extends Task {
      * @throws BuildException if there is an error.
      * @see Task#execute()
      */
+    @Override
     public void execute()
         throws BuildException {
         // The destination of the files to copy
@@ -324,7 +326,7 @@ public class Sync extends Task {
     private int removeEmptyDirectories(Set preservedEmptyDirectories) {
         int removedCount = 0;
         for (Iterator iter = preservedEmptyDirectories.iterator();
-             iter.hasNext(); ) {
+             iter.hasNext();) {
             File f = (File) iter.next();
             String[] s = f.list();
             if (s == null || s.length == 0) {
@@ -399,9 +401,10 @@ public class Sync extends Task {
             myCopy.add(rc);
         } else {
             if (resources == null) {
-                resources = new Restrict();
-                resources.add(new Exists());
-                myCopy.add(resources);
+                Restrict r = new Restrict();
+                r.add(new Exists());
+                r.add(resources = new Resources());
+                myCopy.add(r);
             }
             resources.add(rc);
         }
@@ -463,6 +466,7 @@ public class Sync extends Task {
          * @see Copy#scan(File, File, String[], String[])
          */
         /** {@inheritDoc} */
+        @Override
         protected void scan(File fromDir, File toDir, String[] files,
                             String[] dirs) {
             assertTrue("No mapper", mapperElement == null);
@@ -481,16 +485,14 @@ public class Sync extends Task {
          * @see Copy#scan(Resource[], File)
          */
         /** {@inheritDoc} */
+        @Override
         protected Map scan(Resource[] resources, File toDir) {
             assertTrue("No mapper", mapperElement == null);
 
-            Map m = super.scan(resources, toDir);
-
-            Iterator iter = m.keySet().iterator();
-            while (iter.hasNext()) {
-                nonOrphans.add(((Resource) iter.next()).getName());
+            for (int i = 0; i < resources.length; i++) {
+                nonOrphans.add(resources[i].getName());
             }
-            return m;
+            return super.scan(resources, toDir);
         }
 
         /**
@@ -514,6 +516,7 @@ public class Sync extends Task {
          * @return true always.
          * @since Ant 1.7
          */
+        @Override
         protected boolean supportsNonFileResources() {
             return true;
         }
@@ -545,6 +548,7 @@ public class Sync extends Task {
          * @param dir ignored
          * @throws BuildException always
          */
+        @Override
         public void setDir(File dir) throws BuildException {
             throw new BuildException("preserveintarget doesn't support the dir "
                                      + "attribute");
@@ -581,7 +585,7 @@ public class Sync extends Task {
                 PatternSet ps = mergePatterns(getProject());
                 fs.appendIncludes(ps.getIncludePatterns(getProject()));
                 fs.appendExcludes(ps.getExcludePatterns(getProject()));
-                for (Enumeration e = selectorElements(); e.hasMoreElements(); ) {
+                for (Enumeration e = selectorElements(); e.hasMoreElements();) {
                     fs.appendSelector((FileSelector) e.nextElement());
                 }
                 fs.setDefaultexcludes(getDefaultexcludes());

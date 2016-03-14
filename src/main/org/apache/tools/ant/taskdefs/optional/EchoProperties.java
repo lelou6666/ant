@@ -26,20 +26,22 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Properties;
-import java.util.Vector;
+import java.util.Iterator;
 import java.util.List;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.Vector;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
@@ -407,7 +409,8 @@ public class EchoProperties extends Task {
                 return result;
             }
         };
-        for (int i = 0; i < keyList.size(); i++) {
+        final int size = keyList.size();
+        for (int i = 0; i < size; i++) {
             String name = keyList.get(i).toString();
             String value = allProps.get(name).toString();
             props.setProperty(name, value);

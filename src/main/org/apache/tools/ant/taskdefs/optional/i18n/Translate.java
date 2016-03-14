@@ -28,6 +28,7 @@ import java.io.OutputStreamWriter;
 import java.util.Hashtable;
 import java.util.Locale;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
@@ -178,7 +179,7 @@ public class Translate extends MatchingTask {
 
     /**
      * Sets locale specific language of resource bundle; optional.
-     * @param bundleLanguage langage of the bundle
+     * @param bundleLanguage language of the bundle
      */
     public void setBundleLanguage(String bundleLanguage) {
         this.bundleLanguage = bundleLanguage;
@@ -495,7 +496,8 @@ public class Translate extends MatchingTask {
      */
     private void translate() throws BuildException {
         int filesProcessed = 0;
-        for (int i = 0; i < filesets.size(); i++) {
+        final int size = filesets.size();
+        for (int i = 0; i < size; i++) {
             FileSet fs = (FileSet) filesets.elementAt(i);
             DirectoryScanner ds = fs.getDirectoryScanner(getProject());
             String[] srcFiles = ds.getIncludedFiles();
@@ -573,7 +575,7 @@ public class Translate extends MatchingTask {
 
                     // we found a starttoken, is there an endtoken following?
                     // start at token+tokenlength because start and end
-                    // token may be indentical
+                    // token may be identical
                     int endIndex = line.indexOf(endToken, startIndex
                                                 + startToken.length());
                     if (endIndex < 0) {

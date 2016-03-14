@@ -19,6 +19,7 @@ package org.apache.tools.ant.filters;
 
 import java.io.IOException;
 import java.io.Reader;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.EnumeratedAttribute;
@@ -200,7 +201,7 @@ public final class FixCrLfFilter extends BaseParamFilterReader implements Chaina
      * Get whether the stream is to be treated as though it contains Java
      * source.
      * <P>
-     * This attribute is only used in assocation with the &quot;<i><b>tab</b></i>&quot;
+     * This attribute is only used in association with the &quot;<i><b>tab</b></i>&quot;
      * attribute. Tabs found in Java literals are protected from changes by this
      * filter.
      *
@@ -239,9 +240,6 @@ public final class FixCrLfFilter extends BaseParamFilterReader implements Chaina
 
     private static String calculateEolString(CrLf eol) {
         // Calculate the EOL string per the current config
-        if (eol == CrLf.ASIS) {
-            return System.getProperty("line.separator");
-        }
         if (eol == CrLf.CR || eol == CrLf.MAC) {
             return "\r";
         }
@@ -265,7 +263,9 @@ public final class FixCrLfFilter extends BaseParamFilterReader implements Chaina
         // Change all EOL characters to match the calculated EOL string. If
         // configured to do so, append a trailing EOL so that the file ends on
         // a EOL.
-        in = new NormalizeEolFilter(in, calculateEolString(eol), getFixlast());
+        if (eol != CrLf.ASIS) {
+            in = new NormalizeEolFilter(in, calculateEolString(eol), getFixlast());
+        }
 
         if (tabs != AddAsisRemove.ASIS) {
             // If filtering Java source, prevent changes to whitespace in
@@ -343,7 +343,7 @@ public final class FixCrLfFilter extends BaseParamFilterReader implements Chaina
     /**
      * Indicate whether this stream contains Java source.
      *
-     * This attribute is only used in assocation with the &quot;<i><b>tab</b></i>&quot;
+     * This attribute is only used in association with the &quot;<i><b>tab</b></i>&quot;
      * attribute.
      *
      * @param javafiles
@@ -433,10 +433,6 @@ public final class FixCrLfFilter extends BaseParamFilterReader implements Chaina
 
         public void push(char[] cs) {
             push(cs, 0, cs.length);
-        }
-
-        public void push(String s) {
-            push(s.toCharArray());
         }
 
         /**

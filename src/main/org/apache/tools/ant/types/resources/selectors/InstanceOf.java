@@ -18,11 +18,11 @@
 
 package org.apache.tools.ant.types.resources.selectors;
 
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.ProjectHelper;
+import org.apache.tools.ant.AntTypeDefinition;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ComponentHelper;
-import org.apache.tools.ant.AntTypeDefinition;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.ProjectHelper;
 import org.apache.tools.ant.types.Resource;
 
 /**
@@ -33,7 +33,7 @@ public class InstanceOf implements ResourceSelector {
     private static final String ONE_ONLY = "Exactly one of class|type must be set.";
 
     private Project project;
-    private Class clazz;
+    private Class<?> clazz;
     private String type;
     private String uri;
 
@@ -49,7 +49,7 @@ public class InstanceOf implements ResourceSelector {
      * Set the class to compare against.
      * @param c the class.
      */
-    public void setClass(Class c) {
+    public void setClass(Class<?> c) {
         if (clazz != null) {
             throw new BuildException("The class attribute has already been set.");
         }
@@ -76,7 +76,7 @@ public class InstanceOf implements ResourceSelector {
      * Get the comparison class.
      * @return the Class object.
      */
-    public Class getCheckClass() {
+    public Class<?> getCheckClass() {
         return clazz;
     }
 
@@ -106,7 +106,7 @@ public class InstanceOf implements ResourceSelector {
         if ((clazz == null) == (type == null)) {
             throw new BuildException(ONE_ONLY);
         }
-        Class c = clazz;
+        Class<?> c = clazz;
         if (type != null) {
             if (project == null) {
                 throw new BuildException(

@@ -19,8 +19,9 @@
 package org.apache.tools.ant;
 
 import java.lang.reflect.Method;
-import org.apache.tools.ant.dispatch.Dispatchable;
+
 import org.apache.tools.ant.dispatch.DispatchUtils;
+import org.apache.tools.ant.dispatch.Dispatchable;
 
 /**
  * Uses introspection to "adapt" an arbitrary Bean which doesn't
@@ -74,7 +75,7 @@ public class TaskAdapter extends Task implements TypeAdapter {
      *
      * @see Project#checkTaskClass(Class)
      */
-    public static void checkTaskClass(final Class taskClass,
+    public static void checkTaskClass(final Class<?> taskClass,
                                       final Project project) {
         if (!Dispatchable.class.isAssignableFrom(taskClass)) {
             // don't have to check for interface, since then
@@ -109,7 +110,7 @@ public class TaskAdapter extends Task implements TypeAdapter {
      * The class must have a public no-arg "execute()" method.
      * @param proxyClass the class to check.
      */
-    public void checkProxyClass(Class proxyClass) {
+    public void checkProxyClass(Class<?> proxyClass) {
         checkTaskClass(proxyClass, getProject());
     }
 

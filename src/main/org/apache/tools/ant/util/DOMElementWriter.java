@@ -21,10 +21,12 @@ package org.apache.tools.ant.util;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+
 import org.w3c.dom.Attr;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -44,6 +46,13 @@ import org.w3c.dom.Text;
 public class DOMElementWriter {
 
     private static final int HEX = 16;
+
+    private static final String[] WS_ENTITIES = new String['\r' - '\t' + 1];
+    static {
+        for (int i = '\t'; i < '\r' + 1; i++) {
+            WS_ENTITIES[i - '\t'] = "&#x" + Integer.toHexString(i) + ";";
+        }
+    }
 
     /** prefix for generated prefixes */
     private static final String NS = "ns";
@@ -226,7 +235,7 @@ public class DOMElementWriter {
 
                 case Node.CDATA_SECTION_NODE:
                     out.write("<![CDATA[");
-                    out.write(encodedata(((Text) child).getData()));
+                    encodedata(out, ((Text) child).getData());
                     out.write("]]>");
                     break;
 
@@ -332,7 +341,7 @@ public class DOMElementWriter {
             }
             out.write(attr.getName());
             out.write("=\"");
-            out.write(encode(attr.getValue()));
+            out.write(encodeAttributeValue(attr.getValue()));
             out.write("\"");
         }
 
@@ -411,10 +420,25 @@ public class DOMElementWriter {
      * @return the encoded string.
      */
     public String encode(String value) {
-        StringBuffer sb = new StringBuffer();
-        int len = value.length();
+        return encode(value, false);
+    }
+
+    /**
+     * Escape &lt;, &gt; &amp; &apos;, &quot; as their entities, \n,
+     * \r and \t as numeric entities and drop characters that are
+     * illegal in XML documents.
+     * @param value the string to encode.
+     * @return the encoded string.
+     */
+    public String encodeAttributeValue(String value) {
+        return encode(value, true);
+    }
+
+    private String encode(final String value, final boolean encodeWhitespace) {
+        final int len = value.length();
+        final StringBuffer sb = new StringBuffer(len);
         for (int i = 0; i < len; i++) {
-            char c = value.charAt(i);
+            final char c = value.charAt(i);
             switch (c) {
             case '<':
                 sb.append("&lt;");
@@ -429,12 +453,15 @@ public class DOMElementWriter {
                 sb.append("&quot;");
                 break;
             case '&':
-                int nextSemi = value.indexOf(";", i);
-                if (nextSemi < 0
-                    || !isReference(value.substring(i, nextSemi + 1))) {
-                    sb.append("&amp;");
+                sb.append("&amp;");
+                break;
+            case '\r':
+            case '\n':
+            case '\t':
+                if (encodeWhitespace) {
+                    sb.append(WS_ENTITIES[c - '\t']);
                 } else {
-                    sb.append('&');
+                    sb.append(c);
                 }
                 break;
             default:
@@ -461,31 +488,59 @@ public class DOMElementWriter {
      * href="http://www.w3.org/TR/1998/REC-xml-19980210#sec-cdata-sect">http://www.w3.org/TR/1998/REC-xml-19980210#sec-cdata-sect</a>.</p>
      * @param value the value to be encoded.
      * @return the encoded value.
-
      */
     public String encodedata(final String value) {
-        StringBuffer sb = new StringBuffer();
-        int len = value.length();
-        for (int i = 0; i < len; ++i) {
-            char c = value.charAt(i);
-            if (isLegalCharacter(c)) {
-                sb.append(c);
+        final StringWriter out = new StringWriter();
+        try {
+            encodedata(out, value);
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+        return out.toString();
+    }
+
+    /**
+     * Drop characters that are illegal in XML documents and write the
+     * rest to the given writer.
+     *
+     * <p>Also ensure that we are not including an <code>]]&gt;</code>
+     * marker by replacing that sequence with
+     * <code>&amp;#x5d;&amp;#x5d;&amp;gt;</code>.</p>
+     *
+     * <p>See XML 1.0 2.2 <a
+     * href="http://www.w3.org/TR/1998/REC-xml-19980210#charsets">
+     * http://www.w3.org/TR/1998/REC-xml-19980210#charsets</a> and
+     * 2.7 <a
+     * href="http://www.w3.org/TR/1998/REC-xml-19980210#sec-cdata-sect">http://www.w3.org/TR/1998/REC-xml-19980210#sec-cdata-sect</a>.</p>
+     * @param value the value to be encoded.
+     * @param out where to write the encoded data to.
+     */
+    public void encodedata(final Writer out, final String value) throws IOException {
+        final int len = value.length();
+        int prevEnd = 0, cdataEndPos = value.indexOf("]]>");
+        while (prevEnd < len) {
+            final int end = (cdataEndPos < 0 ? len : cdataEndPos);
+            // Write out stretches of legal characters in the range [prevEnd, end).
+            for (int prevLegalCharPos = prevEnd; prevLegalCharPos < end;/*empty*/) {
+                int illegalCharPos;
+                for (illegalCharPos = prevLegalCharPos; true; ++illegalCharPos) {
+                    if (illegalCharPos >= end
+                        || !isLegalCharacter(value.charAt(illegalCharPos))) {
+                        break;
+                    }
+                }
+                out.write(value, prevLegalCharPos, illegalCharPos - prevLegalCharPos);
+                prevLegalCharPos = illegalCharPos + 1;
+            }
+
+            if (cdataEndPos >= 0) {
+                out.write("]]]]><![CDATA[>");
+                prevEnd = cdataEndPos + 3;
+                cdataEndPos = value.indexOf("]]>", prevEnd);
+            } else {
+                prevEnd = end;
             }
         }
-
-        String result = sb.substring(0);
-        int cdEnd = result.indexOf("]]>");
-        while (cdEnd != -1) {
-            sb.setLength(cdEnd);
-            // CheckStyle:MagicNumber OFF
-            sb.append("&#x5d;&#x5d;&gt;")
-                .append(result.substring(cdEnd + 3));
-            // CheckStyle:MagicNumber ON
-            result = sb.substring(0);
-            cdEnd = result.indexOf("]]>");
-        }
-
-        return result;
     }
 
     /**
@@ -537,7 +592,7 @@ public class DOMElementWriter {
      * @return true if the character is allowed.
      * @since 1.10, Ant 1.5
      */
-    public boolean isLegalCharacter(char c) {
+    public boolean isLegalCharacter(final char c) {
         // CheckStyle:MagicNumber OFF
         if (c == 0x9 || c == 0xA || c == 0xD) {
             return true;

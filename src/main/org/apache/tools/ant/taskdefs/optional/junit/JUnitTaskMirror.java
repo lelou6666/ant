@@ -20,6 +20,7 @@ package org.apache.tools.ant.taskdefs.optional.junit;
 
 import java.io.IOException;
 import java.io.OutputStream;
+
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.types.Permissions;
 
@@ -42,9 +43,9 @@ public interface JUnitTaskMirror {
 
     /**
      * Add the formatter to be called when the jvm exits before
-     * the test suite finishs.
+     * the test suite finishes.
      * @param test the test.
-     * @param formatter the fomatter to use.
+     * @param formatter the formatter to use.
      * @param out the output stream to use.
      * @param message the message to write out.
      * @param testCase the name of the test.

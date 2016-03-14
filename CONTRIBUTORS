@@ -3,25 +3,31 @@ Amongst other, the following people contributed to ant:
 Adam Blinkinsop
 Adam Bryzak
 Adam Sotona
+Adrian Nistor
 Aleksandr Ishutin
 Alex Rosen
 Alexei Yudichev
 Alexey Panchenko
 Alexey Solofnenko
+Alfred Theorin
 Alison Winters
 Andreas Ames
 Andreas Mross
+Andrew Eisenberg
 Andrew Everitt
 Andrew Stevens
 Andrey Urazov
+André-John Mas
 Andy Wood
 Anil K. Vijendran
 Anli Shundi
 Anthony Goubard
 Anthony Green
+Anthony Wat
 Antoine Baudoux
 Antoine Levy-Lambert
 Anton Mazkovoi
+Arjan Veenstra
 Arnaud Vandyck
 Arnout J. Kuiper
 Aslak Hellesôy
@@ -31,8 +37,10 @@ Balazs Fejes 2
 Bart Vanhaute
 Benjamin Burgess
 Ben Galbraith
+Ben Gertzfield
 Benoit Moussaud
 Bernd Dutkowski
+Bernhard Rosenkraenzer
 Brad Clark
 Brant Langer Gurganus
 Brian Curnow
@@ -45,6 +53,8 @@ Charles Hudak
 Charlie Hubbard
 Chris Povirk
 Christian Knorr
+Christian Schmidt
+Christoph Gysin
 Christoph Wilhelms
 Christophe Labouisse
 Christopher A. Longo
@@ -52,6 +62,7 @@ Christopher Charlier
 Clark Archer
 Clemens Hammacher
 Clement OUDOT
+Clive Brettingham-Moore
 Conor MacNeill
 Craeg Strong
 Craig Cottingham
@@ -69,7 +80,9 @@ Dan Armbrust
 Daniel Henrique
 Daniel Ribagnac
 Daniel Spilker
+Daniel Trebbien
 Danno Ferrin
+Danny Yates
 Dante Briones
 Davanum Srinivas
 Dave Brondsema
@@ -86,20 +99,26 @@ David Maclean
 David Rees
 Denis Hennessy
 Derek Slager
+Devon C. Miller
 Diane Holt
 dIon Gillard
+Dmitry A. Kuminov
 Dominique Devienne
 Donal Quinlan
 Don Brown
 Don Ferguson
 Don Jeffery
 Drew Sudell
+Earl Hood
+Edison Guo
 Eduard Wirch
 Edwin Woudt
 Eli Tucker
 Emmanuel Bourg
+Eric Barboni
 Eric Olsen
 Eric Pugh
+Erik Costlow
 Erik Hatcher
 Erik Langenbach
 Erik Meade
@@ -107,6 +126,7 @@ Ernst de Haan
 Frank Harnack
 Frank Somers
 Frank Zeyda
+Frantisek Kucera
 Frederic Bothamy
 Frederic Lavigne
 Gary S. Weaver
@@ -122,6 +142,7 @@ Glenn Twiggs
 Greg Nelson
 Greg Roodt
 Greg Schueler
+Grégoire Vatry
 Günther Kögel
 Harish Prabandham
 Haroon Rafique
@@ -132,6 +153,7 @@ Ignacio Coloma
 Ingenonsya France
 Ingmar Stein
 Irene Rusman
+Isaac Shabtay
 Ivan Ivanov
 J Bleijenbergh
 Jack J. Woehr
@@ -139,6 +161,7 @@ James Duncan Davidson
 Jan Cumps
 Jan Matèrne
 Jan Mynarik
+Jan Stolze
 Jason Hunter
 Jason Pettiss
 Jason Salter
@@ -149,10 +172,12 @@ Jay van der Meer
 JC Mann
 J D Glanville
 Jean-Francois Brousseau
+Jean-Louis Boudart
 Jeff Gettle
 Jeff Martin
 Jeff Tulley
 Jeff Turner
+Jeffrey Adamson
 Jene Jasper
 Jeremy Mawson
 Jerome Lacoste
@@ -160,8 +185,10 @@ Jesse Glick
 Jesse Stockall
 Jim Allers
 Joerg Wassmer
+Joel Tucci
 Joey Richey
 Johann Herunter
+John Elion
 John Sisson
 Jon Dickinson
 Jon S. Stevens
@@ -174,18 +201,22 @@ Julian Simpson
 Justin Vallon
 Keiron Liddle
 Keith Visco
+Kevin Connor Arpe
 Kevin Greiner
 Kevin Jackson
 Kevin Ross
 Kevin Z Grey
 Kim Hansen
 Kirk Wylie
+Kristian Rosenvold
 Kyle Adams
+Lajos Veres
 Larry Shatzer
 Larry Streepy
 Les Hughes
 Levi Cook
 lucas
+Lucas Werkmeister
 Ludovic Claude
 Maarten Coene
 Magesh Umasankar
@@ -194,10 +225,12 @@ Marcel Schutte
 Marcus B&ouml;rger
 Mario Frasca 
 Mariusz Nowostawski
-Mark Hecker
-Mark Salter
-Mark R. Diggory
 Mark A. Ziesemer
+Mark DeLaFranier
+Mark Hecker
+Mark R. Diggory
+Mark Salter
+Markus Kahl
 Martijn Kruithof
 Martin Landers
 Martin Poeschl
@@ -212,11 +245,14 @@ Matt Foemmel
 Matt Grosso
 Matt Humphrey
 Matt Small
+Matt Wildig
 Matthew Hawthorne
 Matthew Inger
 Matthew Kuperus Heun
 Matthew Watson
+Matthias Bhend
 Michael Bayne
+Michael Clarke
 Michael Davey
 Michael J. Sikorsky
 Michael McCallum
@@ -227,7 +263,10 @@ Michael Saunders
 Miha
 Mike Davis
 Mike Roberts
+Mike Williams
+Miroslav Zaťko
 mnowostawski
+Mounir El Hajj
 Nathan Beyer
 Nick Chalko
 Nick Fortescue
@@ -238,8 +277,10 @@ Nico Seessle
 Nigel Magnay
 Oliver Merkel
 Oliver Rossmueller
+Ondra Medek
 Omer Shapira
 Oystein Gisnas
+Patrick Altaie
 Patrick C. Beard
 Patrick Chanezon
 Patrick G. Heck (Gus Heck)
@@ -258,19 +299,26 @@ Peter Doornbosch
 Peter Hulst
 Peter Janes
 Peter Reilly
+Petr Kureš
 Phil Hanna
 Philip Hourihane
 Phillip Wells
 Pierre Delisle
 Pierre Dittgen
+riasol
 R Handerson
+Ralf Hergert
 Rami Ojares
 Randy Watler
 Raphael Pierquin
 Ray Waldin
+Reinhard Pointner
 Remie Bolte
+René Krell
 Richard Evans
+Richard Steele
 Rick Beton
+Robbie Gibson
 Robert Anderson
 Robert Clark
 Robert Flaherty
@@ -279,14 +327,17 @@ Robert Streich
 Robert Watkins
 Roberto Scaramuzzi
 Robin Green
+Robin Power
 Robin Verduijn
 Rob Oxspring
 Rob van Oostrum
 Rodrigo Schmidt
 Roger Vaughn
 Roman Ivashin
+Roman Savko
 Ronen Mashal
 Russell Gold
+Ryan Bennitt
 Sam Ruby
 Sandra Metz
 Scott Carlson
@@ -315,6 +366,7 @@ Steve Loughran
 Steve Morin
 Steve Wadsworth
 Steven E. Newton
+Sudheer Chigurupati
 Takashi Okamoto
 TAMURA Kent
 Taoufik Romdhane
@@ -325,9 +377,12 @@ Thomas Christen
 Thomas Christensen
 Thomas Haas
 Thomas Quas
+Tim Boemker
 Tim Drury
 Tim Fennell
 Tim Stephenson
+Tim Whittington
+Timoteo Ohara
 Timothy Gerard Endres
 Tom Ball
 Tom Brus
@@ -336,13 +391,20 @@ Tom Dimock
 Tom Eugelink
 Tom May
 Tomasz Bech
+Tomáš Zezula
 Trejkaz Xaoza
 Ulrich Schmidt
+Uwe Schindler
 Valentino Miazzo
 Victor Toni
+Vimil Saju
 Vincent Legoll
+Vitold Sedyshev
+Volker Leidl
 Waldek Herka
+Wang Weijun
 Will Wang
+William Bernardet
 William Ferguson
 William Webber
 Wolf Siberski

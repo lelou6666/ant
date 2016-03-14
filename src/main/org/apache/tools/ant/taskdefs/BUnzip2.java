@@ -23,6 +23,7 @@ import java.io.BufferedInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.bzip2.CBZip2InputStream;
@@ -55,8 +56,8 @@ public class BUnzip2 extends Unpack {
      * Do the unbzipping.
      */
     protected void extract() {
-        if (source.lastModified() > dest.lastModified()) {
-            log("Expanding " + source.getAbsolutePath() + " to "
+        if (srcResource.getLastModified() > dest.lastModified()) {
+            log("Expanding " + srcResource.getName() + " to "
                 + dest.getAbsolutePath());
 
             FileOutputStream out = null;
@@ -75,7 +76,7 @@ public class BUnzip2 extends Unpack {
                 if (b != 'Z') {
                     throw new BuildException("Invalid bz2 file.", getLocation());
                 }
-                zIn = new CBZip2InputStream(bis);
+                zIn = new CBZip2InputStream(bis, true);
                 byte[] buffer = new byte[BUFFER_SIZE];
                 int count = 0;
                 do {

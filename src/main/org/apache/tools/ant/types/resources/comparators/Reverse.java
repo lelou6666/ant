@@ -18,6 +18,7 @@
 package org.apache.tools.ant.types.resources.comparators;
 
 import java.util.Stack;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.DataType;
@@ -72,7 +73,7 @@ public class Reverse extends ResourceComparator {
             ? foo.compareTo(bar) : nested.compare(foo, bar));
     }
 
-    protected void dieOnCircularReference(Stack stk, Project p)
+    protected void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;

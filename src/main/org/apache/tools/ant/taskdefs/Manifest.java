@@ -27,11 +27,11 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.util.CollectionUtils;
 import org.apache.tools.ant.util.FileUtils;
@@ -127,7 +127,7 @@ public class Manifest {
         private String name = null;
 
         /** The attribute's value */
-        private Vector values = new Vector();
+        private Vector<String> values = new Vector<String>();
 
         /**
          * For multivalued attributes, this is the index of the attribute
@@ -166,6 +166,7 @@ public class Manifest {
          * @see java.lang.Object#hashCode
          * @return a hashcode based on the key and values.
          */
+        @Override
         public int hashCode() {
             int hashCode = 0;
 
@@ -182,6 +183,7 @@ public class Manifest {
          * @see java.lang.Object#equals
          * @return true if the key and values are the same.
          */
+        @Override
         public boolean equals(Object rhs) {
             if (rhs == null || rhs.getClass() != getClass()) {
                 return false;
@@ -276,8 +278,8 @@ public class Manifest {
             }
 
             String fullValue = "";
-            for (Enumeration e = getValues(); e.hasMoreElements();) {
-                String value = (String) e.nextElement();
+            for (Enumeration<String> e = getValues(); e.hasMoreElements();) {
+                String value = e.nextElement();
                 fullValue += value + " ";
             }
             return fullValue.trim();
@@ -298,7 +300,7 @@ public class Manifest {
          *
          * @return an enumeration of the attributes values
          */
-        public Enumeration getValues() {
+        public Enumeration<String> getValues() {
             return values.elements();
         }
 
@@ -312,7 +314,7 @@ public class Manifest {
          * @param line the continuation line.
          */
         public void addContinuation(String line) {
-            String currentValue = (String) values.elementAt(currentIndex);
+            String currentValue = values.elementAt(currentIndex);
             setValue(currentValue + line.substring(1));
         }
 
@@ -342,8 +344,8 @@ public class Manifest {
         public void write(PrintWriter writer, boolean flatten)
             throws IOException {
             if (!flatten) {
-            for (Enumeration e = getValues(); e.hasMoreElements();) {
-                writeValue(writer, (String) e.nextElement());
+            for (Enumeration<String> e = getValues(); e.hasMoreElements();) {
+                writeValue(writer, e.nextElement());
             }
             } else {
                 writeValue(writer, getValue());
@@ -402,7 +404,7 @@ public class Manifest {
      */
     public static class Section {
         /** Warnings for this section */
-        private Vector warnings = new Vector();
+        private Vector<String> warnings = new Vector<String>();
 
         /**
          * The section's name if any. The main section in a
@@ -411,7 +413,7 @@ public class Manifest {
         private String name = null;
 
         /** The section's attributes.*/
-        private Map attributes = new LinkedHashMap();
+        private Map<String, Attribute> attributes = new LinkedHashMap<String, Attribute>();
 
         /**
          * The name of the section; optional -default is the main section.
@@ -509,19 +511,19 @@ public class Manifest {
                     + "with different names");
             }
 
-            Enumeration e = section.getAttributeKeys();
+            Enumeration<String> e = section.getAttributeKeys();
             Attribute classpathAttribute = null;
             while (e.hasMoreElements()) {
-                String attributeName = (String) e.nextElement();
+                String attributeName = e.nextElement();
                 Attribute attribute = section.getAttribute(attributeName);
                 if (attributeName.equalsIgnoreCase(ATTRIBUTE_CLASSPATH)) {
                     if (classpathAttribute == null) {
                         classpathAttribute = new Attribute();
                         classpathAttribute.setName(ATTRIBUTE_CLASSPATH);
                     }
-                    Enumeration cpe = attribute.getValues();
+                    Enumeration<String> cpe = attribute.getValues();
                     while (cpe.hasMoreElements()) {
-                        String value = (String) cpe.nextElement();
+                        String value = cpe.nextElement();
                         classpathAttribute.addValue(value);
                     }
                 } else {
@@ -534,9 +536,9 @@ public class Manifest {
                 if (mergeClassPaths) {
                     Attribute currentCp = getAttribute(ATTRIBUTE_CLASSPATH);
                     if (currentCp != null) {
-                        for (Enumeration attribEnum = currentCp.getValues();
-                             attribEnum.hasMoreElements(); ) {
-                            String value = (String) attribEnum.nextElement();
+                        for (Enumeration<String> attribEnum = currentCp.getValues();
+                             attribEnum.hasMoreElements();) {
+                            String value = attribEnum.nextElement();
                             classpathAttribute.addValue(value);
                         }
                     }
@@ -545,7 +547,7 @@ public class Manifest {
             }
 
             // add in the warnings
-            Enumeration warnEnum = section.warnings.elements();
+            Enumeration<String> warnEnum = section.warnings.elements();
             while (warnEnum.hasMoreElements()) {
                 warnings.addElement(warnEnum.nextElement());
             }
@@ -580,9 +582,9 @@ public class Manifest {
                 Attribute nameAttr = new Attribute(ATTRIBUTE_NAME, name);
                 nameAttr.write(writer);
             }
-            Enumeration e = getAttributeKeys();
+            Enumeration<String> e = getAttributeKeys();
             while (e.hasMoreElements()) {
-                String key = (String) e.nextElement();
+                String key = e.nextElement();
                 Attribute attribute = getAttribute(key);
                 attribute.write(writer, flatten);
             }
@@ -598,7 +600,7 @@ public class Manifest {
          *         instances.
          */
         public Attribute getAttribute(String attributeName) {
-            return (Attribute) attributes.get(attributeName.toLowerCase(Locale.ENGLISH));
+            return attributes.get(attributeName.toLowerCase(Locale.ENGLISH));
         }
 
         /**
@@ -607,7 +609,7 @@ public class Manifest {
          * @return an Enumeration of Strings, each string being the lower case
          *         key of an attribute of the section.
          */
-        public Enumeration getAttributeKeys() {
+        public Enumeration<String> getAttributeKeys() {
             return CollectionUtils.asEnumeration(attributes.keySet().iterator());
         }
 
@@ -686,7 +688,7 @@ public class Manifest {
                 // classpath attributes go into a vector
                 if (attributeKey.equals(ATTRIBUTE_CLASSPATH_LC)) {
                     Attribute classpathAttribute =
-                        (Attribute) attributes.get(attributeKey);
+                        attributes.get(attributeKey);
 
                     if (classpathAttribute == null) {
                         storeAttribute(attribute);
@@ -695,9 +697,9 @@ public class Manifest {
                             + "are supported but violate the Jar "
                             + "specification and may not be correctly "
                             + "processed in all environments");
-                        Enumeration e = attribute.getValues();
+                        Enumeration<String> e = attribute.getValues();
                         while (e.hasMoreElements()) {
-                            String value = (String) e.nextElement();
+                            String value = e.nextElement();
                             classpathAttribute.addValue(value);
                         }
                     }
@@ -718,12 +720,13 @@ public class Manifest {
          * @return the cloned Section
          * @since Ant 1.5.2
          */
+        @Override
         public Object clone() {
             Section cloned = new Section();
             cloned.setName(name);
-            Enumeration e = getAttributeKeys();
+            Enumeration<String> e = getAttributeKeys();
             while (e.hasMoreElements()) {
-                String key = (String) e.nextElement();
+                String key = e.nextElement();
                 Attribute attribute = getAttribute(key);
                 cloned.storeAttribute(new Attribute(attribute.getName(),
                                                     attribute.getValue()));
@@ -749,7 +752,7 @@ public class Manifest {
          *
          * @return an Enumeration of warning strings.
          */
-        public Enumeration getWarnings() {
+        public Enumeration<String> getWarnings() {
             return warnings.elements();
         }
 
@@ -757,6 +760,7 @@ public class Manifest {
          * @see java.lang.Object#hashCode
          * @return a hash value based on the attributes.
          */
+        @Override
         public int hashCode() {
             return attributes.hashCode();
         }
@@ -766,6 +770,7 @@ public class Manifest {
          * @param rhs the object to check for equality.
          * @return true if the attributes are the same.
          */
+        @Override
         public boolean equals(Object rhs) {
             if (rhs == null || rhs.getClass() != getClass()) {
                 return false;
@@ -789,7 +794,7 @@ public class Manifest {
     private Section mainSection = new Section();
 
     /** The named sections of this manifest */
-    private Map sections = new LinkedHashMap();
+    private Map<String, Section> sections = new LinkedHashMap<String, Section>();
 
     /**
      * Construct a manifest from Ant's default manifest file.
@@ -981,12 +986,12 @@ public class Manifest {
                  manifestVersion = other.manifestVersion;
              }
 
-             Enumeration e = other.getSectionNames();
+             Enumeration<String> e = other.getSectionNames();
              while (e.hasMoreElements()) {
-                 String sectionName = (String) e.nextElement();
-                 Section ourSection = (Section) sections.get(sectionName);
+                 String sectionName = e.nextElement();
+                 Section ourSection = sections.get(sectionName);
                  Section otherSection
-                    = (Section) other.sections.get(sectionName);
+                    = other.sections.get(sectionName);
                  if (ourSection == null) {
                      if (otherSection != null) {
                          addConfiguredSection((Section) otherSection.clone());
@@ -1043,9 +1048,7 @@ public class Manifest {
             }
         }
 
-        Iterator e = sections.keySet().iterator();
-        while (e.hasNext()) {
-            String sectionName = (String) e.next();
+        for (String sectionName : sections.keySet()) {
             Section section = getSection(sectionName);
             section.write(writer, flatten);
         }
@@ -1057,6 +1060,7 @@ public class Manifest {
      * @return a multiline string with the Manifest as it
      *         appears in a Manifest file.
      */
+    @Override
     public String toString() {
         StringWriter sw = new StringWriter();
         try {
@@ -1072,19 +1076,17 @@ public class Manifest {
      *
      * @return an enumeration of warning strings
      */
-    public Enumeration getWarnings() {
-        Vector warnings = new Vector();
+    public Enumeration<String> getWarnings() {
+        Vector<String> warnings = new Vector<String>();
 
-        Enumeration warnEnum = mainSection.getWarnings();
+        Enumeration<String> warnEnum = mainSection.getWarnings();
         while (warnEnum.hasMoreElements()) {
             warnings.addElement(warnEnum.nextElement());
         }
 
         // create a vector and add in the warnings for all the sections
-        Iterator e = sections.values().iterator();
-        while (e.hasNext()) {
-            Section section = (Section) e.next();
-            Enumeration e2 = section.getWarnings();
+        for (Section section : sections.values()) {
+            Enumeration<String> e2 = section.getWarnings();
             while (e2.hasMoreElements()) {
                 warnings.addElement(e2.nextElement());
             }
@@ -1097,6 +1099,7 @@ public class Manifest {
      * @see java.lang.Object#hashCode
      * @return a hashcode based on the version, main and sections.
      */
+    @Override
     public int hashCode() {
         int hashCode = 0;
 
@@ -1114,6 +1117,7 @@ public class Manifest {
      * @param rhs the object to check for equality.
      * @return true if the version, main and sections are the same.
      */
+    @Override
     public boolean equals(Object rhs) {
         if (rhs == null || rhs.getClass() != getClass()) {
             return false;
@@ -1165,7 +1169,7 @@ public class Manifest {
      * does not exist in the manifest
      */
     public Section getSection(String name) {
-        return (Section) sections.get(name);
+        return sections.get(name);
     }
 
     /**
@@ -1173,7 +1177,7 @@ public class Manifest {
      *
      * @return an Enumeration of section names
      */
-    public Enumeration getSectionNames() {
+    public Enumeration<String> getSectionNames() {
         return CollectionUtils.asEnumeration(sections.keySet().iterator());
     }
 }

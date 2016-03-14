@@ -24,10 +24,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+
 import javax.swing.ImageIcon;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
+import org.apache.tools.ant.taskdefs.optional.net.SetProxy;
 import org.apache.tools.ant.util.Base64Converter;
 
 /**
@@ -66,8 +69,9 @@ public class SplashTask extends Task {
      * using &lt;setproxy&gt; instead
      * @param useProxy if ture, enable proxy settings
      * @deprecated since 1.5.x.
-     *             Use org.apache.tools.ant.taskdefs.optional.SetProxy
+     *             Use org.apache.tools.ant.taskdefs.optional.net.SetProxy
      */
+    @Deprecated
     public void setUseproxy(boolean useProxy) {
         this.useProxy = useProxy;
     }
@@ -75,7 +79,10 @@ public class SplashTask extends Task {
     /**
      * name of proxy; optional.
      * @param proxy the name of the proxy host
+     * @deprecated since 1.5.x.
+     *             Use org.apache.tools.ant.taskdefs.optional.net.SetProxy
      */
+    @Deprecated
     public void setProxy(String proxy) {
         this.proxy = proxy;
     }
@@ -83,7 +90,10 @@ public class SplashTask extends Task {
     /**
      * Proxy port; optional, default 80.
      * @param port the proxy port
+     * @deprecated since 1.5.x.
+     *             Use org.apache.tools.ant.taskdefs.optional.net.SetProxy
      */
+    @Deprecated
     public void setPort(String port) {
         this.port = port;
     }
@@ -91,7 +101,10 @@ public class SplashTask extends Task {
     /**
      * Proxy user; optional, default =none.
      * @param user the proxy user
+     * @deprecated since 1.5.x.
+     *             Use org.apache.tools.ant.taskdefs.optional.net.SetProxy
      */
+    @Deprecated
     public void setUser(String user) {
         this.user = user;
     }
@@ -99,7 +112,10 @@ public class SplashTask extends Task {
     /**
      * Proxy password; required if <tt>user</tt> is set.
      * @param password the proxy password
+     * @deprecated since 1.5.x.
+     *             Use org.apache.tools.ant.taskdefs.optional.net.SetProxy
      */
+    @Deprecated
     public void setPassword(String password) {
         this.password = password;
     }
@@ -107,7 +123,7 @@ public class SplashTask extends Task {
     /**
      * how long to show the splash screen in milliseconds,
      * optional; default 5000 ms.
-     * @param duration the spash duration in milliseconds
+     * @param duration the splash duration in milliseconds
      */
     public void setShowduration(int duration) {
         this.showDuration = duration;
@@ -129,7 +145,7 @@ public class SplashTask extends Task {
 
     /**
      * Sets the display text presented in the splash window.
-     * optional; defaults to "Building ..." 
+     * optional; defaults to "Building ..."
      * @param displayText the display text presented the splash window
      * @since Ant 1.8.0
      */
@@ -141,6 +157,7 @@ public class SplashTask extends Task {
      * Execute the task.
      * @throws BuildException on error
      */
+    @Override
     public void execute() throws BuildException {
         if (splash != null) {
             splash.setVisible(false);
@@ -156,13 +173,20 @@ public class SplashTask extends Task {
             try {
                 URLConnection conn = null;
 
+                SetProxy sp = new SetProxy();
+                sp.setProxyHost(proxy);
+                if (port != null) {
+                    sp.setProxyPort(Integer.parseInt(port));
+                }
+                sp.setProxyUser(user);
+                sp.setProxyPassword(password);
+                sp.applyWebProxySettings();
+
                 if (useProxy && (proxy != null && proxy.length() > 0)
                     && (port != null && port.length() > 0)) {
 
                     log("Using proxied Connection",  Project.MSG_DEBUG);
                     System.getProperties().put("http.proxySet", "true");
-                    System.getProperties().put("http.proxyHost", proxy);
-                    System.getProperties().put("http.proxyPort", port);
 
                     URL url = new URL(imgurl);
 
@@ -179,8 +203,6 @@ public class SplashTask extends Task {
 
                 } else {
                     System.getProperties().put("http.proxySet", "false");
-                    System.getProperties().put("http.proxyHost", "");
-                    System.getProperties().put("http.proxyPort", "");
                     log("Using Direction HTTP Connection", Project.MSG_DEBUG);
                     URL url = new URL(imgurl);
                     conn = url.openConnection();

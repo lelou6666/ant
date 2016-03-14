@@ -18,18 +18,29 @@
 
 package org.apache.tools.ant.taskdefs.optional.ssh;
 
-import junit.framework.TestCase;
-
-import java.io.*;
-import java.util.List;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.condition.FilesMatch;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.resources.Sort;
+import org.apache.tools.ant.types.resources.comparators.Name;
+import org.apache.tools.ant.types.resources.comparators.Reverse;
 import org.apache.tools.ant.types.selectors.FilenameSelector;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * This is a unit test for the Scp task in Ant.  It must be
@@ -47,7 +58,7 @@ import org.apache.tools.ant.types.selectors.FilenameSelector;
  *                      supports RSA and DSA keys. If it is not present
  *                      this task setTrust() to true.  (optional)
  */
-public class ScpTest extends TestCase {
+public class ScpTest {
 
     private File tempDir;
     private String sshHostUri = System.getProperty("scp.host");
@@ -56,24 +67,26 @@ public class ScpTest extends TestCase {
 
     private List cleanUpList = new ArrayList();
 
-    public ScpTest(String testname) {
-        super(testname);
+    public ScpTest() {
         if (System.getProperty("scp.tmp") != null) {
             tempDir = new File(System.getProperty("scp.tmp"));
         }
     }
 
-    protected void setUp() {
+    @Before
+    public void setUp() {
         cleanUpList.clear();
     }
 
-    protected void tearDown() {
+    @After
+    public void tearDown() {
         for( Iterator i = cleanUpList.iterator(); i.hasNext(); ) {
             File file = (File) i.next();
             file.delete();
         }
     }
 
+    @Test
     public void testSingleFileUploadAndDownload() throws IOException {
         assertNotNull("system property scp.tmp must be set", tempDir);
         File uploadFile = createTemporaryFile();
@@ -86,12 +99,11 @@ public class ScpTest extends TestCase {
 
         File testFile = new File( tempDir.getPath() + File.separator +
                 "download-testSingleFileUploadAndDownload.test" );
-        addCleanup( testFile );
-        assertTrue( "Assert that the testFile does not exist.",
-                !testFile.exists() );
+        addCleanup(testFile );
+        assertFalse("Assert that the testFile does not exist.", testFile.exists());
 
         // download
-        scpTask = createTask(); 
+        scpTask = createTask();
         scpTask.setFile( sshHostUri + "/" + uploadFile.getName() );
         scpTask.setTodir( testFile.getPath() );
         scpTask.execute();
@@ -100,6 +112,7 @@ public class ScpTest extends TestCase {
         compareFiles( uploadFile, testFile );
     }
 
+    @Test
     public void testMultiUploadAndDownload() throws IOException {
         assertNotNull("system property scp.tmp must be set", tempDir);
         List uploadList = new ArrayList();
@@ -137,25 +150,57 @@ public class ScpTest extends TestCase {
         }
     }
 
+    @Test
+    public void testMultiResourceCollectionUpload() throws IOException {
+        assertNotNull("system property scp.tmp must be set", tempDir);
+        List uploadList = new ArrayList();
+        for (int i = 0; i < 5; i++) {
+            uploadList.add(createTemporaryFile());
+        }
+
+        Scp scp = createTask();
+
+        // reverse order resource collection
+        Sort sort = new Sort();
+        sort.setProject(scp.getProject());
+        Reverse reverse = new Reverse();
+        reverse.add(new Name());
+        sort.add(reverse);
+
+        FilenameSelector selector = new FilenameSelector();
+        selector.setName("scp*");
+        FileSet fileset = new FileSet();
+        fileset.setProject(scp.getProject());
+        fileset.setDir(tempDir);
+        fileset.addFilename(selector);
+        sort.add(fileset);
+        scp.add(sort);
+
+        scp.setTodir(sshHostUri);
+        scp.execute();
+    }
+
+    @Test
     public void testRemoteToDir() throws IOException {
         Scp scpTask = createTask();
-        
+
         // first try an invalid URI
         try {
             scpTask.setRemoteTodir( "host:/a/path/without/an/at" );
             fail("Expected a BuildException to be thrown due to invalid"
-                    + " remoteToDir"); 
+                    + " remoteToDir");
         }
         catch (BuildException e)
         {
             // expected
+            //TODO we should be asserting a value in here
         }
-        
+
         // And this one should work
         scpTask.setRemoteTodir( "user:password@host:/a/path/with/an/at" );
         // no exception
     }
-    
+
     public void addCleanup( File file ) {
         cleanUpList.add( file );
     }

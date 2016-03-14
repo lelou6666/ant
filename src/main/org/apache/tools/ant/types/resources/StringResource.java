@@ -17,17 +17,17 @@
  */
 package org.apache.tools.ant.types.resources;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.FilterOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.types.Resource;
 
 /**
  * Exposes a string as a Resource.
@@ -39,7 +39,8 @@ public class StringResource extends Resource {
     private static final int STRING_MAGIC
         = Resource.getMagicNumber("StringResource".getBytes());
 
-    private String encoding = null;
+    private static final String DEFAULT_ENCODING = "UTF-8";
+    private String encoding = DEFAULT_ENCODING;
 
     /**
      * Default constructor.
@@ -212,7 +213,7 @@ public class StringResource extends Resource {
      * @param r the Reference to set.
      */
     public void setRefid(Reference r) {
-        if (encoding != null) {
+        if (encoding != DEFAULT_ENCODING) {
             throw tooManyAttributes();
         }
         super.setRefid(r);

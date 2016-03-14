@@ -19,15 +19,15 @@
 package org.apache.tools.ant.types.selectors.modifiedselector;
 
 
-import java.util.Iterator;
-import java.util.Vector;
-import java.util.Enumeration;
-import java.util.Properties;
-import java.io.File;
 import java.io.BufferedInputStream;
-import java.io.FileInputStream;
 import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.Properties;
+import java.util.Vector;
 
 
 /**
@@ -208,11 +208,11 @@ public class PropertiesfileCache implements Cache {
      * Returns an iterator over the keys in the cache.
      * @return An iterator over the keys.
      */
-    public Iterator iterator() {
-        Vector v = new java.util.Vector();
-        Enumeration en = cache.propertyNames();
+    public Iterator<String> iterator() {
+        Vector<String> v = new Vector<String>();
+        Enumeration<?> en = cache.propertyNames();
         while (en.hasMoreElements()) {
-            v.add(en.nextElement());
+            v.add(en.nextElement().toString());
         }
         return v.iterator();
     }

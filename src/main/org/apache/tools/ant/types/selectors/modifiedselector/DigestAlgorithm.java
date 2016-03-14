@@ -21,11 +21,12 @@ package org.apache.tools.ant.types.selectors.modifiedselector;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.Locale;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.util.Locale;
+
 import org.apache.tools.ant.BuildException;
 
 
@@ -197,7 +198,7 @@ public class DigestAlgorithm implements Algorithm {
      * @return some information about this algorithm.
      */
     public String toString() {
-        StringBuffer buf = new StringBuffer();
+        StringBuilder buf = new StringBuilder();
         buf.append("<DigestAlgorithm:");
         buf.append("algorithm=").append(algorithm);
         buf.append(";provider=").append(provider);

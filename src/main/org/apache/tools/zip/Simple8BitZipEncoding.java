@@ -28,7 +28,7 @@ import java.util.List;
 /**
  * This ZipEncoding implementation implements a simple 8bit character
  * set, which mets the following restrictions:
- * 
+ *
  * <ul>
  * <li>Characters 0x0000 to 0x007f are encoded as the corresponding
  *        byte values 0x00 to 0x7f.</li>
@@ -36,11 +36,11 @@ import java.util.List;
  *       character in the range 0x0080 to 0x7fff. (No support for
  *       UTF-16 surrogates)
  * </ul>
- * 
+ *
  * <p>These restrictions most notably apply to the most prominent
  * omissions of java-1.4's {@link java.nio.charset.Charset Charset}
  * implementation, Cp437 and Cp850.</p>
- * 
+ *
  * <p>The methods of this class are reentrant.</p>
  */
 class Simple8BitZipEncoding implements ZipEncoding {
@@ -49,24 +49,37 @@ class Simple8BitZipEncoding implements ZipEncoding {
      * A character entity, which is put to the reverse mapping table
      * of a simple encoding.
      */
-    private static final class Simple8BitChar implements Comparable {
+    private static final class Simple8BitChar implements Comparable<Simple8BitChar> {
         public final char unicode;
         public final byte code;
 
-        Simple8BitChar(byte code, char unicode) {
+        Simple8BitChar(final byte code, final char unicode) {
             this.code = code;
             this.unicode = unicode;
         }
 
-        public int compareTo(Object o) {
-            Simple8BitChar a = (Simple8BitChar) o;
-
+        public int compareTo(final Simple8BitChar a) {
             return this.unicode - a.unicode;
         }
 
+        @Override
         public String toString() {
-            return "0x" + Integer.toHexString(0xffff & (int) unicode)
-                + "->0x" + Integer.toHexString(0xff & (int) code);
+            return "0x" + Integer.toHexString(0xffff & unicode)
+                + "->0x" + Integer.toHexString(0xff & code);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (o instanceof Simple8BitChar) {
+                final Simple8BitChar other = (Simple8BitChar) o;
+                return unicode == other.unicode && code == other.code;
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return unicode;
         }
     }
 
@@ -81,73 +94,74 @@ class Simple8BitZipEncoding implements ZipEncoding {
      * field.  This list is used to binary search reverse mapping of
      * unicode characters with a character code greater than 127.
      */
-    private final List reverseMapping;
+    private final List<Simple8BitChar> reverseMapping;
 
     /**
      * @param highChars The characters for byte values of 128 to 255
      * stored as an array of 128 chars.
      */
-    public Simple8BitZipEncoding(char[] highChars) {
-        this.highChars = highChars;
-        this.reverseMapping = new ArrayList(this.highChars.length);
+    public Simple8BitZipEncoding(final char[] highChars) {
+        this.highChars = highChars.clone();
+        final List<Simple8BitChar> temp =
+            new ArrayList<Simple8BitChar>(this.highChars.length);
 
         byte code = 127;
 
         for (int i = 0; i < this.highChars.length; ++i) {
-            this.reverseMapping.add(new Simple8BitChar(++code,
-                                                       this.highChars[i]));
+            temp.add(new Simple8BitChar(++code, this.highChars[i]));
         }
 
-        Collections.sort(this.reverseMapping);
+        Collections.sort(temp);
+        this.reverseMapping = Collections.unmodifiableList(temp);
     }
 
     /**
      * Return the character code for a given encoded byte.
-     * 
+     *
      * @param b The byte to decode.
      * @return The associated character value.
      */
-    public char decodeByte(byte b) {
+    public char decodeByte(final byte b) {
         // code 0-127
         if (b >= 0) {
             return (char) b;
         }
 
         // byte is signed, so 128 == -128 and 255 == -1
-        return this.highChars[128 + (int) b];
+        return this.highChars[128 + b];
     }
 
     /**
      * @param c The character to encode.
      * @return Whether the given unicode character is covered by this encoding.
      */
-    public boolean canEncodeChar(char c) {
+    public boolean canEncodeChar(final char c) {
 
         if (c >= 0 && c < 128) {
             return true;
         }
 
-        Simple8BitChar r = this.encodeHighChar(c);
+        final Simple8BitChar r = this.encodeHighChar(c);
         return r != null;
     }
 
     /**
      * Pushes the encoded form of the given character to the given byte buffer.
-     * 
+     *
      * @param bb The byte buffer to write to.
      * @param c The character to encode.
      * @return Whether the given unicode character is covered by this encoding.
-     *         If <code>false</code> is returned, nothing is pushed to the
-     *         byte buffer. 
+     *         If {@code false} is returned, nothing is pushed to the
+     *         byte buffer.
      */
-    public boolean pushEncodedChar(ByteBuffer bb, char c) {
+    public boolean pushEncodedChar(final ByteBuffer bb, final char c) {
 
         if (c >= 0 && c < 128) {
             bb.put((byte) c);
             return true;
         }
 
-        Simple8BitChar r = this.encodeHighChar(c);
+        final Simple8BitChar r = this.encodeHighChar(c);
         if (r == null) {
             return false;
         }
@@ -158,10 +172,10 @@ class Simple8BitZipEncoding implements ZipEncoding {
     /**
      * @param c A unicode character in the range from 0x0080 to 0x7f00
      * @return A Simple8BitChar, if this character is covered by this encoding.
-     *         A <code>null</code> value is returned, if this character is not
+     *         A {@code null} value is returned, if this character is not
      *         covered by this encoding.
      */
-    private Simple8BitChar encodeHighChar(char c) {
+    private Simple8BitChar encodeHighChar(final char c) {
         // for performance an simplicity, yet another reincarnation of
         // binary search...
         int i0 = 0;
@@ -169,9 +183,9 @@ class Simple8BitZipEncoding implements ZipEncoding {
 
         while (i1 > i0) {
 
-            int i = i0 + (i1 - i0) / 2;
+            final int i = i0 + (i1 - i0) / 2;
 
-            Simple8BitChar m = (Simple8BitChar) this.reverseMapping.get(i);
+            final Simple8BitChar m = this.reverseMapping.get(i);
 
             if (m.unicode == c) {
                 return m;
@@ -188,7 +202,7 @@ class Simple8BitZipEncoding implements ZipEncoding {
             return null;
         }
 
-        Simple8BitChar r = (Simple8BitChar) this.reverseMapping.get(i0);
+        final Simple8BitChar r = this.reverseMapping.get(i0);
 
         if (r.unicode != c) {
             return null;
@@ -201,11 +215,11 @@ class Simple8BitZipEncoding implements ZipEncoding {
      * @see
      * org.apache.tools.zip.ZipEncoding#canEncode(java.lang.String)
      */
-    public boolean canEncode(String name) {
+    public boolean canEncode(final String name) {
 
         for (int i=0;i<name.length();++i) {
 
-            char c = name.charAt(i);
+            final char c = name.charAt(i);
 
             if (!this.canEncodeChar(c)) {
                 return false;
@@ -219,13 +233,13 @@ class Simple8BitZipEncoding implements ZipEncoding {
      * @see
      * org.apache.tools.zip.ZipEncoding#encode(java.lang.String)
      */
-    public ByteBuffer encode(String name) {
+    public ByteBuffer encode(final String name) {
         ByteBuffer out = ByteBuffer.allocate(name.length()
                                              + 6 + (name.length() + 1) / 2);
 
         for (int i=0;i<name.length();++i) {
 
-            char c = name.charAt(i);
+            final char c = name.charAt(i);
 
             if (out.remaining() < 6) {
                 out = ZipEncodingHelper.growBuffer(out,out.position() + 6);
@@ -246,8 +260,8 @@ class Simple8BitZipEncoding implements ZipEncoding {
      * @see
      * org.apache.tools.zip.ZipEncoding#decode(byte[])
      */
-    public String decode(byte[] data) throws IOException {
-        char [] ret = new char[data.length];
+    public String decode(final byte[] data) throws IOException {
+        final char [] ret = new char[data.length];
 
         for (int i=0;i<data.length;++i) {
             ret[i] = this.decodeByte(data[i]);

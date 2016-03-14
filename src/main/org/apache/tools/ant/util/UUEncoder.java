@@ -17,8 +17,8 @@
  */
 package org.apache.tools.ant.util;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
@@ -38,7 +38,7 @@ public class UUEncoder {
     private String name;
 
     /**
-     * Constructor specifing a name for the encoded buffer, begin
+     * Constructor specifying a name for the encoded buffer, begin
      * line will be:
      * <pre>
      *   begin 644 [NAME]

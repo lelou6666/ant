@@ -22,14 +22,15 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.MalformedURLException;
 
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -226,7 +227,20 @@ public class URLResource extends Resource implements URLProvider {
             return false;
         }
         try {
-            connect();
+            connect(Project.MSG_VERBOSE);
+            if (conn instanceof HttpURLConnection) {
+                int sc = ((HttpURLConnection) conn).getResponseCode();
+                // treating inaccessible resources as non-existent
+                return sc < 400;
+            } else if (url.getProtocol().startsWith("ftp")) {
+                closeConnection = true;
+                InputStream in = null;
+                try {
+                    in = conn.getInputStream();
+                } finally {
+                    FileUtils.close(in);
+                }
+            }
             return true;
         } catch (IOException e) {
             return false;
@@ -249,9 +263,13 @@ public class URLResource extends Resource implements URLProvider {
             return ((Resource) getCheckedRef()).getLastModified();
         }
         if (!isExists(false)) {
-            return 0L;
+            return UNKNOWN_DATETIME;
         }
-        return conn.getLastModified();
+        return withConnection(new ConnectionUser() {
+                public long useConnection(URLConnection c) {
+                    return conn.getLastModified();
+                }
+            }, UNKNOWN_DATETIME);
     }
 
     /**
@@ -276,14 +294,11 @@ public class URLResource extends Resource implements URLProvider {
         if (!isExists(false)) {
             return 0L;
         }
-        try {
-            connect();
-            long contentlength = conn.getContentLength();
-            close();
-            return contentlength;
-        } catch (IOException e) {
-            return UNKNOWN_SIZE;
-        }
+        return withConnection(new ConnectionUser() {
+                public long useConnection(URLConnection c) {
+                    return conn.getContentLength();
+                }
+            }, UNKNOWN_SIZE);
     }
 
     /**
@@ -298,7 +313,7 @@ public class URLResource extends Resource implements URLProvider {
         if (isReference()) {
             return getCheckedRef().equals(another);
         }
-        if (!(another.getClass().equals(getClass()))) {
+        if (another == null || !(another.getClass().equals(getClass()))) {
             return false;
         }
         URLResource otheru = (URLResource) another;
@@ -363,7 +378,19 @@ public class URLResource extends Resource implements URLProvider {
      * Ensure that we have a connection.
      * @throws IOException if the connection cannot be established.
      */
-    protected synchronized void connect() throws IOException {
+    protected void connect() throws IOException {
+        connect(Project.MSG_ERR);
+    }
+
+    /**
+     * Ensure that we have a connection.
+     * @param logLevel severity to use when logging connection errors.
+     * Should be one of the <code>MSG_</code> constants in {@link
+     * Project Project}.
+     * @throws IOException if the connection cannot be established.
+     * @since Ant 1.8.2
+     */
+    protected synchronized void connect(int logLevel) throws IOException {
         URL u = getURL();
         if (u == null) {
             throw new BuildException("URL not set");
@@ -373,7 +400,7 @@ public class URLResource extends Resource implements URLProvider {
                 conn = u.openConnection();
                 conn.connect();
             } catch (IOException e) {
-                log(e.toString(), Project.MSG_ERR);
+                log(e.toString(), logLevel);
                 conn = null;
                 throw e;
             }
@@ -404,4 +431,24 @@ public class URLResource extends Resource implements URLProvider {
         }
     }
 
+    private interface ConnectionUser {
+        long useConnection(URLConnection c);
+    }
+
+    private long withConnection(ConnectionUser u, long defaultValue) {
+        try {
+            if (conn != null) {
+                return u.useConnection(conn);
+            } else {
+                try {
+                    connect();
+                    return u.useConnection(conn);
+                } finally {
+                    close();
+                }
+            }
+        } catch (IOException ex) {
+            return defaultValue;
+        }
+    }
 }

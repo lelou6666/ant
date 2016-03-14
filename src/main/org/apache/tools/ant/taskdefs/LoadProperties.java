@@ -25,15 +25,16 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Properties;
 import java.util.Vector;
-import org.apache.tools.ant.Project;
+
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.filters.util.ChainReaderHelper;
+import org.apache.tools.ant.types.FilterChain;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
-import org.apache.tools.ant.types.FilterChain;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.JavaResource;
 import org.apache.tools.ant.util.FileUtils;
@@ -55,17 +56,18 @@ public class LoadProperties extends Task {
     /**
      * Holds filterchains
      */
-    private final Vector filterChains = new Vector();
+    private final Vector<FilterChain> filterChains = new Vector<FilterChain>();
 
     /**
      * Encoding to use for input; defaults to the platform's default encoding.
      */
     private String encoding = null;
-    
+
     /**
      * Prefix for loaded properties.
      */
     private String prefix = null;
+    private boolean prefixValues = true;
 
     /**
      * Set the file to load.
@@ -142,6 +144,16 @@ public class LoadProperties extends Task {
     }
 
     /**
+     * Whether to apply the prefix when expanding properties on the
+     * right hand side of a properties file as well.
+     *
+     * @since Ant 1.8.2
+     */
+    public void setPrefixValues(boolean b) {
+        prefixValues = b;
+    }
+
+    /**
      * load Ant properties from the source file or resource
      *
      * @exception BuildException if something goes wrong with the build
@@ -189,6 +201,7 @@ public class LoadProperties extends Task {
                 Property propertyTask = new Property();
                 propertyTask.bindToOwner(this);
                 propertyTask.setPrefix(prefix);
+                propertyTask.setPrefixValues(prefixValues);
                 propertyTask.addProperties(props);
             }
         } catch (final IOException ioe) {
@@ -220,7 +233,7 @@ public class LoadProperties extends Task {
             throw new BuildException(
                     "only single-element resource collections are supported");
         }
-        src = (Resource) a.iterator().next();
+        src = a.iterator().next();
     }
 
     private synchronized JavaResource getRequiredJavaResource() {

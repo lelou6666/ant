@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.Resource;
@@ -75,7 +76,7 @@ public abstract class Pack extends Task {
         if (src.isDirectory()) {
             throw new BuildException("the source can't be a directory");
         }
-        FileProvider fp = (FileProvider) src.as(FileProvider.class);
+        FileProvider fp = src.as(FileProvider.class);
         if (fp != null) {
             source = fp.getFile();
         } else if (!supportsNonFileResources()) {
@@ -98,7 +99,7 @@ public abstract class Pack extends Task {
                     + " cannot handle multiple resources at once. (" + a.size()
                     + " resources were selected.)");
         }
-        setSrcResource((Resource) a.iterator().next());
+        setSrcResource(a.iterator().next());
     }
 
     /**

@@ -22,6 +22,10 @@ import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Properties;
 import java.util.Vector;
+<<<<<<< HEAD
+=======
+
+>>>>>>> refs/remotes/apache/master
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.PropertyHelper;
@@ -54,7 +58,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
 
     /** the names of test methods to execute */
     private String[] methods = null;
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> refs/remotes/apache/master
     /** the name of the result file */
     private String outfile = null;
 
@@ -62,7 +70,14 @@ public class JUnitTest extends BaseTest implements Cloneable {
     // part of the result. So we'd better derive a new class from TestResult
     // and deal with it. (SB)
     private long runs, failures, errors;
+    /**
+    @since Ant 1.9.0
+    */
+    private long skips;
+
     private long runTime;
+
+    private int antThreadID;
 
     // Snapshot of the system properties
     private Properties props = null;
@@ -88,27 +103,62 @@ public class JUnitTest extends BaseTest implements Cloneable {
      */
     public JUnitTest(String name, boolean haltOnError, boolean haltOnFailure,
             boolean filtertrace) {
+<<<<<<< HEAD
         this(name, haltOnError, haltOnFailure, filtertrace, null);
     }    
     
+=======
+        this(name, haltOnError, haltOnFailure, filtertrace, null, 0);
+    }
+
+>>>>>>> refs/remotes/apache/master
     /**
      * Constructor with options.
      * @param name the name of the test.
      * @param haltOnError if true halt the tests if there is an error.
      * @param haltOnFailure if true halt the tests if there is a failure.
      * @param filtertrace if true filter stack traces.
+<<<<<<< HEAD
      * @param methods if true run only test methods that failed during the
      *                previous run of the test suite
      * @since https://svn.apache.org/repos/asf/ant/core/branches/run-single-test-method/
      */
     public JUnitTest(String name, boolean haltOnError, boolean haltOnFailure,
                      boolean filtertrace, String[] methods) {
+=======
+     * @param methods if non-null run only these test methods
+     * @since 1.8.2
+     */
+    public JUnitTest(String name, boolean haltOnError, boolean haltOnFailure,
+                     boolean filtertrace, String[] methods) {
+        this(name, haltOnError, haltOnFailure, filtertrace, methods, 0);
+    }
+
+    /**
+     * Constructor with options.
+     * @param name the name of the test.
+     * @param haltOnError if true halt the tests if there is an error.
+     * @param haltOnFailure if true halt the tests if there is a failure.
+     * @param filtertrace if true filter stack traces.
+     * @param methods if non-null run only these test methods
+     * @param thread Ant thread ID in which test is currently running
+     * @since 1.9.4
+     */
+    public JUnitTest(String name, boolean haltOnError, boolean haltOnFailure,
+                     boolean filtertrace, String[] methods, int thread) {
+>>>>>>> refs/remotes/apache/master
         this.name  = name;
         this.haltOnError = haltOnError;
         this.haltOnFail = haltOnFailure;
         this.filtertrace = filtertrace;
+<<<<<<< HEAD
         this.methods = methods;
         this.methodsSpecified = (methods != null);
+=======
+        this.methodsSpecified = methods != null;
+        this.methods = methodsSpecified ? (String[]) methods.clone() : null;
+        this.antThreadID = thread;
+>>>>>>> refs/remotes/apache/master
     }
 
     /**
@@ -116,7 +166,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
      * @param value comma-separated list of names of individual test methods
      *              to be executed,
      *              or <code>null</code> if all test methods should be executed
+<<<<<<< HEAD
      * @since https://svn.apache.org/repos/asf/ant/core/branches/run-single-test-method/
+=======
+     * @since 1.8.2
+>>>>>>> refs/remotes/apache/master
      */
     public void setMethods(String value) {
         methodsList = value;
@@ -128,7 +182,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
      * Sets names of individual test methods to be executed.
      * @param value non-empty array of names of test methods to be executed
      * @see #setMethods(String)
+<<<<<<< HEAD
      * @since https://svn.apache.org/repos/asf/ant/core/branches/run-single-test-method/
+=======
+     * @since 1.8.2
+>>>>>>> refs/remotes/apache/master
      */
     void setMethods(String[] value) {
         methods = value;
@@ -145,6 +203,17 @@ public class JUnitTest extends BaseTest implements Cloneable {
     }
 
     /**
+     * Set the thread id
+     * @param thread the Ant id of the thread running this test
+     * (this is not the system process or thread id)
+     * (this will be 0 in single-threaded mode).
+     * @since Ant 1.9.4
+     */
+    public void setThread(int thread) {
+        this.antThreadID = thread;
+    }
+
+    /**
      * Set the name of the output file.
      * @param value the name of the output file to use.
      */
@@ -158,7 +227,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
      *         specified, <code>false</code> otherwise
      * @see #setMethods(java.lang.String)
      * @see #setMethods(java.lang.String[])
+<<<<<<< HEAD
      * @since https://svn.apache.org/repos/asf/ant/core/branches/run-single-test-method/
+=======
+     * @since 1.8.2
+>>>>>>> refs/remotes/apache/master
      */
     boolean hasMethodsSpecified() {
         return methodsSpecified;
@@ -170,7 +243,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
      * @return array of names of the individual test methods to be executed,
      *         or <code>null</code> if all test methods in the suite
      *         defined by the test class will be executed
+<<<<<<< HEAD
      * @since https://svn.apache.org/repos/asf/ant/core/branches/run-single-test-method/
+=======
+     * @since 1.8.2
+>>>>>>> refs/remotes/apache/master
      */
     String[] getMethods() {
         if (methodsSpecified && (methods == null)) {
@@ -185,7 +262,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
      * @return the comma-separated list of test method names, or an empty
      *         string of no method is to be executed, or <code>null</code>
      *         if no method is specified
+<<<<<<< HEAD
      * @since https://svn.apache.org/repos/asf/ant/core/branches/run-single-test-method/
+=======
+     * @since 1.8.2
+>>>>>>> refs/remotes/apache/master
      */
     String getMethodsString() {
         if ((methodsList == null) && methodsSpecified) {
@@ -210,7 +291,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
      * of the {@link #methodsList} field, if it has not been computed yet.
      * @exception BuildException if the value of the {@link #methodsList} field
      *                           was invalid
+<<<<<<< HEAD
      * @since https://svn.apache.org/repos/asf/ant/core/branches/run-single-test-method/
+=======
+     * @since 1.8.2
+>>>>>>> refs/remotes/apache/master
      */
     void resolveMethods() {
         if ((methods == null) && methodsSpecified) {
@@ -235,7 +320,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
      *             a comma-separated list of valid Java identifiers;
      *             an empty string is acceptable and is handled as an empty
      *             list
+<<<<<<< HEAD
      * @since https://svn.apache.org/repos/asf/ant/core/branches/run-single-test-method/
+=======
+     * @since 1.8.2
+>>>>>>> refs/remotes/apache/master
      */
     public static String[] parseTestMethodNamesList(String methodNames)
                                             throws IllegalArgumentException {
@@ -298,10 +387,17 @@ public class JUnitTest extends BaseTest implements Cloneable {
                     break;
                 case stateInsideWord:
                     if (c == ',') {
+<<<<<<< HEAD
                         result[wordIndex++] = new String(methodNames.substring(wordStartIndex, i));
                         state = stateBeforeWord;
                     } else if (c == ' ') {
                         result[wordIndex++] = new String(methodNames.substring(wordStartIndex, i));
+=======
+                        result[wordIndex++] = methodNames.substring(wordStartIndex, i);
+                        state = stateBeforeWord;
+                    } else if (c == ' ') {
+                        result[wordIndex++] = methodNames.substring(wordStartIndex, i);
+>>>>>>> refs/remotes/apache/master
                         state = stateAfterWord;
                     } else if (Character.isJavaIdentifierPart(c)) {
                         // remain in the same state
@@ -327,7 +423,11 @@ public class JUnitTest extends BaseTest implements Cloneable {
             case stateAfterWord:
                 break;
             case stateInsideWord:
+<<<<<<< HEAD
                 result[wordIndex++] = new String(methodNames.substring(wordStartIndex, chars.length));
+=======
+                result[wordIndex++] = methodNames.substring(wordStartIndex, chars.length);
+>>>>>>> refs/remotes/apache/master
                 break;
             default:
                 // this should never happen
@@ -344,6 +444,14 @@ public class JUnitTest extends BaseTest implements Cloneable {
     }
 
     /**
+     * Get the Ant id of the thread running the test.
+     * @return the thread id
+     */
+    public int getThread() {
+        return antThreadID;
+    }
+
+    /**
      * Get the name of the output file
      *
      * @return the name of the output file.
@@ -353,15 +461,30 @@ public class JUnitTest extends BaseTest implements Cloneable {
     }
 
     /**
-     * Set the number of runs, failures and errors.
+     * Set the number of runs, failures, errors, and skipped tests.
      * @param runs     the number of runs.
      * @param failures the number of failures.
      * @param errors   the number of errors.
+     * Kept for backward compatibility with Ant 1.8.4
      */
     public void setCounts(long runs, long failures, long errors) {
         this.runs = runs;
         this.failures = failures;
         this.errors = errors;
+    }
+    /**
+     * Set the number of runs, failures, errors, and skipped tests.
+     * @param runs     the number of runs.
+     * @param failures the number of failures.
+     * @param errors   the number of errors.
+     * @param skips   the number of skipped tests.
+     * @since Ant 1.9.0
+     */
+    public void setCounts(long runs, long failures, long errors, long skips) {
+        this.runs = runs;
+        this.failures = failures;
+        this.errors = errors;
+        this.skips = skips;
     }
 
     /**
@@ -394,6 +517,14 @@ public class JUnitTest extends BaseTest implements Cloneable {
      */
     public long errorCount() {
         return errors;
+    }
+
+    /**
+     * Get the number of skipped tests.
+     * @return the number of skipped tests.
+     */
+    public long skipCount() {
+        return skips;
     }
 
     /**
@@ -462,6 +593,7 @@ public class JUnitTest extends BaseTest implements Cloneable {
      * @since Ant 1.5
      * @return a clone of this test.
      */
+    @Override
     public Object clone() {
         try {
             JUnitTest t = (JUnitTest) super.clone();

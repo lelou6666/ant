@@ -17,32 +17,32 @@
  */
 package org.apache.tools.ant;
 
-import org.apache.tools.ant.util.LoaderUtils;
-import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.ant.util.JAXPUtils;
-import org.apache.tools.ant.util.ProxySetup;
-import org.apache.tools.ant.util.JavaEnvUtils;
-import org.apache.tools.ant.launch.Launcher;
-import org.xml.sax.XMLReader;
-
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.parsers.SAXParser;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.Transformer;
 import java.io.File;
-import java.io.FilenameFilter;
-import java.io.PrintStream;
-import java.io.InputStream;
-import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
+import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.Properties;
-import java.util.Calendar;
 import java.util.TimeZone;
-import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
+
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+
+import org.apache.tools.ant.launch.Launcher;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.JAXPUtils;
+import org.apache.tools.ant.util.JavaEnvUtils;
+import org.apache.tools.ant.util.ProxySetup;
+import org.xml.sax.XMLReader;
 
 /**
  * A little diagnostic helper that output some information that may help
@@ -146,7 +146,7 @@ public final class Diagnostics {
      * @return null if there is no package or implementation version.
      * '?.?' for JDK 1.0 or 1.1.
      */
-    private static String getImplementationVersion(Class clazz) {
+    private static String getImplementationVersion(Class<?> clazz) {
         return clazz.getPackage().getImplementationVersion();
     }
 
@@ -155,7 +155,7 @@ public final class Diagnostics {
      * @param clazz the class to get the information from.
      * @since Ant 1.8.0
      */
-    private static URL getClassLocation(Class clazz) {
+    private static URL getClassLocation(Class<?> clazz) {
         if (clazz.getProtectionDomain().getCodeSource() == null) {
             return null;
         }
@@ -363,8 +363,9 @@ public final class Diagnostics {
         } catch (SecurityException  e) {
             ignoreThrowable(e);
             out.println("Access to System.getProperties() blocked " + "by a security manager");
+            return;
         }
-        for (Enumeration keys = sysprops.propertyNames();
+        for (Enumeration<?> keys = sysprops.propertyNames();
             keys.hasMoreElements();) {
             String key = (String) keys.nextElement();
             String value = getProperty(key);
@@ -399,6 +400,12 @@ public final class Diagnostics {
         out.println(MagicNames.ANT_VERSION + ": " + p.getProperty(MagicNames.ANT_VERSION));
         out.println(MagicNames.ANT_JAVA_VERSION + ": "
                 + p.getProperty(MagicNames.ANT_JAVA_VERSION));
+        out.println("Is this the Apache Harmony VM? "
+                    + (JavaEnvUtils.isApacheHarmony() ? "yes" : "no"));
+        out.println("Is this the Kaffe VM? "
+                    + (JavaEnvUtils.isKaffe() ? "yes" : "no"));
+        out.println("Is this gij/gcj? "
+                    + (JavaEnvUtils.isGij() ? "yes" : "no"));
         out.println(MagicNames.ANT_LIB + ": " + p.getProperty(MagicNames.ANT_LIB));
         out.println(MagicNames.ANT_HOME + ": " + p.getProperty(MagicNames.ANT_HOME));
     }
@@ -449,7 +456,7 @@ public final class Diagnostics {
     private static void doReportWhich(PrintStream out) {
         Throwable error = null;
         try {
-            Class which = Class.forName("org.apache.env.Which");
+            Class<?> which = Class.forName("org.apache.env.Which");
             Method method = which.getMethod(
                 "main", new Class[] {String[].class});
             method.invoke(null, new Object[]{new String[]{}});
@@ -485,7 +492,7 @@ public final class Diagnostics {
             Properties props = new Properties();
             try {
                 props.load(is);
-                for (Enumeration keys = props.keys(); keys.hasMoreElements();) {
+                for (Enumeration<?> keys = props.keys(); keys.hasMoreElements();) {
                     String key = (String) keys.nextElement();
                     String classname = props.getProperty(key);
                     try {
@@ -690,7 +697,7 @@ public final class Diagnostics {
         printProperty(out, ProxySetup.USE_SYSTEM_PROXIES);
         final String proxyDiagClassname = "org.apache.tools.ant.util.java15.ProxyDiagnostics";
         try {
-            Class proxyDiagClass = Class.forName(proxyDiagClassname);
+            Class<?> proxyDiagClass = Class.forName(proxyDiagClassname);
             Object instance = proxyDiagClass.newInstance();
             out.println("Java1.5+ proxy settings:");
             out.println(instance.toString());

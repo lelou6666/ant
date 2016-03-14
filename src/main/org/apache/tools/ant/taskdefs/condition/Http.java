@@ -18,11 +18,12 @@
 
 package org.apache.tools.ant.taskdefs.condition;
 
-import java.util.Locale;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Locale;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectComponent;
@@ -40,7 +41,7 @@ public class Http extends ProjectComponent implements Condition {
 
     private String spec = null;
     private String requestMethod = DEFAULT_REQUEST_METHOD;
-
+    private boolean followRedirects = true;
 
     /**
      * Set the url attribute
@@ -79,6 +80,15 @@ public class Http extends ProjectComponent implements Condition {
     }
 
     /**
+     * Whether redirects sent by the server should be followed,
+     * defaults to true.
+     * @since Ant 1.9.7
+     */
+    public void setFollowRedirects(boolean f) {
+        followRedirects = f;
+    }
+
+    /**
      * @return true if the HTTP request succeeds
      * @exception BuildException if an error occurs
      */
@@ -94,6 +104,7 @@ public class Http extends ProjectComponent implements Condition {
                 if (conn instanceof HttpURLConnection) {
                     HttpURLConnection http = (HttpURLConnection) conn;
                     http.setRequestMethod(requestMethod);
+                    http.setInstanceFollowRedirects(followRedirects);
                     int code = http.getResponseCode();
                     log("Result code for " + spec + " was " + code,
                         Project.MSG_VERBOSE);

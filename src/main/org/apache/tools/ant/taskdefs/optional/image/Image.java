@@ -17,7 +17,15 @@
  */
 package org.apache.tools.ant.taskdefs.optional.image;
 
-import com.sun.media.jai.codec.FileSeekableStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Locale;
+import java.util.Vector;
+
+import javax.media.jai.JAI;
+import javax.media.jai.PlanarImage;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
@@ -33,15 +41,7 @@ import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.IdentityMapper;
 
-import javax.media.jai.JAI;
-import javax.media.jai.PlanarImage;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.Vector;
+import com.sun.media.jai.codec.FileSeekableStream;
 
 /**
  * A MatchingTask which relies on <a
@@ -213,7 +213,7 @@ public class Image extends MatchingTask {
      * the directory.
      * @since Ant 1.8.0
      */
-    public int processDir(final File srcDir, final String srcNames[],
+    public int processDir(final File srcDir, final String[] srcNames,
                           final File dstDir, final FileNameMapper mapper) {
         int writeCount = 0;
 
@@ -290,7 +290,8 @@ public class Image extends MatchingTask {
             try {
                 input = new FileSeekableStream(file);
                 image = JAI.create("stream", input);
-                for (int i = 0; i < instructions.size(); i++) {
+                final int size = instructions.size();
+                for (int i = 0; i < size; i++) {
                     Object instr = instructions.elementAt(i);
                     if (instr instanceof TransformOperation) {
                         image = ((TransformOperation) instr)
@@ -304,7 +305,8 @@ public class Image extends MatchingTask {
             }
 
             File dstParent = newFile.getParentFile();
-            if (!dstParent.isDirectory() && !dstParent.mkdirs()){
+            if (!dstParent.isDirectory()
+                && !(dstParent.mkdirs() || dstParent.isDirectory())) {
                 throw new BuildException("Failed to create parent directory "
                                          + dstParent);
             }
@@ -374,7 +376,8 @@ public class Image extends MatchingTask {
                 writeCount += processDir(srcDir, files, dest, mapper);
             }
             // deal with the filesets
-            for (int i = 0; i < filesets.size(); i++) {
+            final int size = filesets.size();
+            for (int i = 0; i < size; i++) {
                 final FileSet fs = (FileSet) filesets.elementAt(i);
                 final DirectoryScanner ds =
                     fs.getDirectoryScanner(getProject());

@@ -17,16 +17,17 @@
  */
 package org.apache.tools.ant.util;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.FileWriter;
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Vector;
+
 import org.apache.tools.ant.taskdefs.condition.Os;
 
 /**
  * A set of helper methods related to locating executables or checking
- * conditons of a given Java installation.
+ * conditions of a given Java installation.
  *
  * @since Ant 1.5
  */
@@ -89,11 +90,35 @@ public final class JavaEnvUtils {
     /** Number Version constant for Java 1.6 */
     public static final int VERSION_1_6 = 16;
 
+    /** Version constant for Java 1.7 */
+    public static final String JAVA_1_7 = "1.7";
+    /** Number Version constant for Java 1.7 */
+    public static final int VERSION_1_7 = 17;
+
+    /** Version constant for Java 1.8 */
+    public static final String JAVA_1_8 = "1.8";
+    /** Number Version constant for Java 1.8 */
+    public static final int VERSION_1_8 = 18;
+
+    /** Version constant for Java 1.9 */
+    public static final String JAVA_1_9 = "1.9";
+    /** Number Version constant for Java 1.9 */
+    public static final int VERSION_1_9 = 19;
+
     /** Whether this is the Kaffe VM */
     private static boolean kaffeDetected;
 
+    /** Wheter this is a GNU Classpath based VM */
+    private static boolean classpathDetected;
+
+    /** Whether this is the GNU VM (gcj/gij) */
+    private static boolean gijDetected;
+
+    /** Whether this is Apache Harmony */
+    private static boolean harmonyDetected;
+
     /** array of packages in the runtime */
-    private static Vector jrePackages;
+    private static Vector<String> jrePackages;
 
 
     static {
@@ -124,8 +149,17 @@ public final class JavaEnvUtils {
             Class.forName("java.net.Proxy");
             javaVersion = JAVA_1_5;
             javaVersionNumber++;
-            Class.forName("java.util.ServiceLoader");
+            Class.forName("java.net.CookieStore");
             javaVersion = JAVA_1_6;
+            javaVersionNumber++;
+            Class.forName("java.nio.file.FileSystem");
+            javaVersion = JAVA_1_7;
+            javaVersionNumber++;
+            Class.forName("java.lang.reflect.Executable");
+            javaVersion = JAVA_1_8;
+            javaVersionNumber++;
+            checkForJava9();
+            javaVersion = JAVA_1_9;
             javaVersionNumber++;
         } catch (Throwable t) {
             // swallow as we've hit the max class version that
@@ -137,6 +171,27 @@ public final class JavaEnvUtils {
             kaffeDetected = true;
         } catch (Throwable t) {
             // swallow as this simply doesn't seem to be Kaffe
+        }
+        classpathDetected = false;
+        try {
+            Class.forName("gnu.classpath.Configuration");
+            classpathDetected = true;
+        } catch (Throwable t) {
+            // swallow as this simply doesn't seem to be GNU classpath based.
+        }
+        gijDetected = false;
+        try {
+            Class.forName("gnu.gcj.Core");
+            gijDetected = true;
+        } catch (Throwable t) {
+            // swallow as this simply doesn't seem to be gcj/gij
+        }
+        harmonyDetected = false;
+        try {
+            Class.forName("org.apache.harmony.luni.util.Base64");
+            harmonyDetected = true;
+        } catch (Throwable t) {
+            // swallow as this simply doesn't seem to be Apache Harmony
         }
     }
 
@@ -150,8 +205,26 @@ public final class JavaEnvUtils {
 
 
     /**
+     * Checks for a give Java 9 runtime.
+     * At the time of writing the actual version of the JDK was 1.9.0_b06.
+     * Searching for new classes gave no hits, so we need another aproach.
+     * Searching for changes (grep -r -i -n "@since 1.9" .) in the sources gave
+     * only one hit: a new constant in the class SourceVersion.
+     * So we have to check that ...
+     *
+     * @throws Exception if we can't load the class or don't find the new constant.
+     *    This is the behavior when searching for new features on older versions.
+     * @since Ant 1.9.4
+     */
+    private static void checkForJava9() throws Exception {
+    	Class<?> clazz = Class.forName("javax.lang.model.SourceVersion");
+    	clazz.getDeclaredField("RELEASE_9");
+    }
+
+
+    /**
      * Returns the version of Java this class is running under.
-     * This number can be used for comparisions; it will always be
+     * This number can be used for comparisons; it will always be
      * @return the version of Java as a number 10x the major/minor,
      * e.g Java1.5 has a value of 15
      */
@@ -163,8 +236,8 @@ public final class JavaEnvUtils {
      * Compares the current Java version to the passed in String -
      * assumes the argument is one of the constants defined in this
      * class.
-     * Note that Ant now requires JDK 1.4+ so {@link #JAVA_1_0} through
-     * {@link #JAVA_1_3} need no longer be tested for.
+     * Note that Ant now requires JDK 1.5+ so {@link #JAVA_1_0} through
+     * {@link #JAVA_1_4} need no longer be tested for.
      * @param version the version to check against the current version.
      * @return true if the version of Java is the same as the given version.
      * @since Ant 1.5
@@ -177,8 +250,8 @@ public final class JavaEnvUtils {
      * Compares the current Java version to the passed in String -
      * assumes the argument is one of the constants defined in this
      * class.
-     * Note that Ant now requires JDK 1.4+ so {@link #JAVA_1_0} through
-     * {@link #JAVA_1_3} need no longer be tested for.
+     * Note that Ant now requires JDK 1.5+ so {@link #JAVA_1_0} through
+     * {@link #JAVA_1_4} need no longer be tested for.
      * @param version the version to check against the current version.
      * @return true if the version of Java is the same or higher than the
      * given version.
@@ -196,6 +269,34 @@ public final class JavaEnvUtils {
      */
     public static boolean isKaffe() {
         return kaffeDetected;
+    }
+
+    /**
+     * Checks whether the current Java VM is GNU Classpath
+     * @since Ant 1.9.1
+     * @return true if the version of Java is GNU Classpath
+     */
+    public static boolean isClasspathBased() {
+        return classpathDetected;
+    }
+
+    /**
+     * Checks whether the current Java VM is the GNU interpreter gij
+     * or we are running in a gcj precompiled binary.
+     * @since Ant 1.8.2
+     * @return true if the current Java VM is gcj/gij.
+     */
+    public static boolean isGij() {
+        return gijDetected;
+    }
+
+    /**
+     * Checks whether the current VM is Apache Harmony.
+     * @since Ant 1.8.2
+     * @return true if the current VM is Apache Harmony.
+     */
+    public static boolean isApacheHarmony() {
+        return harmonyDetected;
     }
 
     /**
@@ -284,6 +385,8 @@ public final class JavaEnvUtils {
             // fall back to JRE bin directory, also catches JDK 1.0 and 1.1
             // where java.home points to the root of the JDK and Mac OS X where
             // the whole directory layout is different from Sun's
+            // and also catches JDK 1.9 (and probably later) which
+            // merged JDK and JRE dirs
             return getJreExecutable(command);
         }
     }
@@ -322,8 +425,11 @@ public final class JavaEnvUtils {
      */
 
     private static void buildJrePackages() {
-        jrePackages = new Vector();
+        jrePackages = new Vector<String>();
         switch(javaVersionNumber) {
+            case VERSION_1_9:
+            case VERSION_1_8:
+            case VERSION_1_7:
             case VERSION_1_6:
             case VERSION_1_5:
                 //In Java1.5, the apache stuff moved.
@@ -370,18 +476,22 @@ public final class JavaEnvUtils {
      * Testing helper method; kept here for unification of changes.
      * @return a list of test classes depending on the java version.
      */
-    public static Vector getJrePackageTestCases() {
-        Vector tests = new Vector();
+    public static Vector<String> getJrePackageTestCases() {
+        Vector<String> tests = new Vector<String>();
         tests.addElement("java.lang.Object");
         switch(javaVersionNumber) {
+            case VERSION_1_9:
+            case VERSION_1_8:
+            case VERSION_1_7:
             case VERSION_1_6:
             case VERSION_1_5:
                 tests.addElement(
                     "com.sun.org.apache.xerces.internal.jaxp.datatype.DatatypeFactoryImpl ");
-                // Fall tru
+                // Fall through
             case VERSION_1_4:
                 tests.addElement("sun.audio.AudioPlayer");
                 if (javaVersionNumber == VERSION_1_4) {
+                	// only for 1.4, not for higher versions which fall through
                     tests.addElement("org.apache.crimson.parser.ContentModel");
                     tests.addElement("org.apache.xalan.processor.ProcessorImport");
                     tests.addElement("org.apache.xml.utils.URI");
@@ -421,7 +531,7 @@ public final class JavaEnvUtils {
      * that platforms runtime jar(s)
      * @return list of packages.
      */
-    public static Vector getJrePackages() {
+    public static Vector<String> getJrePackages() {
         if (jrePackages == null) {
             buildJrePackages();
         }

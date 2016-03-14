@@ -23,14 +23,13 @@ import java.util.Iterator;
  * Interface describing a collection of Resources.
  * @since Ant 1.7
  */
-public interface ResourceCollection {
+public interface ResourceCollection extends Iterable<Resource> {
 
     /**
-     * Get an Iterator over the contents of this ResourceCollection, whose elements
-     * are <code>org.apache.tools.ant.types.Resource</code> instances.
-     * @return an Iterator of Resources.
+     * Gets the contents of this collection.
+     * @return all resources in the collection
      */
-    Iterator iterator();
+    Iterator<Resource> iterator();
 
     /**
      * Learn the number of contained Resources.
@@ -40,9 +39,10 @@ public interface ResourceCollection {
 
     /**
      * Indicate whether this ResourceCollection is composed entirely of
-     * Resources accessible via local filesystem conventions.  If true,
-     * all Resources returned from this ResourceCollection should be
-     * instances of FileResource.
+     * Resources accessible via local filesystem conventions. If true,
+     * all resources returned from this collection should
+     * respond with a {@link org.apache.tools.ant.types.resources.FileProvider}
+     * when asked via {@link Resource#as}.
      * @return whether this is a filesystem-only resource collection.
      */
     boolean isFilesystemOnly();

@@ -19,6 +19,7 @@ package org.apache.tools.ant.taskdefs.optional.extension.resolvers;
 
 import java.io.File;
 import java.net.URL;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.Get;
@@ -60,7 +61,7 @@ public class URLResolver implements ExtensionResolver {
 
     /**
      * Returns the file resolved from URL and directory
-     * @param extension the extention
+     * @param extension the extension
      * @param project the project
      * @return file the file resolved
      * @throws BuildException if the URL is invalid

@@ -17,12 +17,14 @@
  */
 package org.apache.tools.ant.types.resources;
 
-import java.util.List;
-import java.util.Iterator;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 
 /**
@@ -36,27 +38,26 @@ public class Intersect extends BaseResourceCollectionContainer {
      * Calculate the intersection of the nested ResourceCollections.
      * @return a Collection of Resources.
      */
-    protected Collection getCollection() {
-        List rcs = getResourceCollections();
+    protected Collection<Resource> getCollection() {
+        List<ResourceCollection> rcs = getResourceCollections();
         int size = rcs.size();
         if (size < 2) {
             throw new BuildException("The intersection of " + size
                 + " resource collection" + ((size == 1) ? "" : "s")
                 + " is undefined.");
         }
-        ArrayList al = new ArrayList();
-        Iterator rc = rcs.iterator();
-        al.addAll(collect(rc.next()));
+        Iterator<ResourceCollection> rc = rcs.iterator();
+        Set<Resource> s = new LinkedHashSet<Resource>(collect(rc.next()));
         while (rc.hasNext()) {
-            al.retainAll(collect(rc.next()));
+            s.retainAll(collect(rc.next()));
         }
-        return al;
+        return s;
     }
 
-    private ArrayList collect(Object o) {
-        ArrayList result = new ArrayList();
-        for (Iterator i = ((ResourceCollection) o).iterator(); i.hasNext();) {
-            result.add(i.next());
+    private Set<Resource> collect(ResourceCollection rc) {
+        Set<Resource> result = new LinkedHashSet<Resource>();
+        for (Resource r : rc) {
+            result.add(r);
         }
         return result;
     }

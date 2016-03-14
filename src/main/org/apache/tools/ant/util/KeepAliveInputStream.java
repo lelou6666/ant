@@ -32,7 +32,6 @@ import java.io.InputStream;
  *   in.close();
  * }
  * </pre>
- * </p>
  *
  * @since Ant 1.6
  */
@@ -49,7 +48,7 @@ public class KeepAliveInputStream extends FilterInputStream {
 
     /**
      * This method does nothing.
-     * @throws IOException as we are overridding FilterInputStream.
+     * @throws IOException as we are overriding FilterInputStream.
      */
     public void close() throws IOException {
         // do not close the stream

@@ -17,12 +17,12 @@
  */
 package org.apache.tools.ant.dispatch;
 
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.UnknownElement;
-import org.apache.tools.ant.Task;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Task;
+import org.apache.tools.ant.UnknownElement;
 
 /**
  * Determines and Executes the action method for the task.
@@ -58,7 +58,7 @@ public class DispatchUtils {
                         if (name.length() > 1) {
                             mName += name.substring(1);
                         }
-                        final Class c = dispatchable.getClass();
+                        final Class<? extends Dispatchable> c = dispatchable.getClass();
                         final Method actionM = c.getMethod(mName, new Class[0]);
                         if (actionM != null) {
                             final Object o = actionM.invoke(dispatchable, (Object[]) null);

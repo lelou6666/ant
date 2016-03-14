@@ -20,13 +20,21 @@ package org.apache.tools.ant.taskdefs.optional.junit;
 
 import java.util.Iterator;
 import java.util.List;
+<<<<<<< HEAD
 import junit.framework.JUnit4TestAdapterCache;
 import junit.framework.Test;
 import junit.framework.TestResult;
+=======
+
+import junit.framework.Test;
+import junit.framework.TestResult;
+
+>>>>>>> refs/remotes/apache/master
 import org.junit.runner.Description;
 import org.junit.runner.Request;
 import org.junit.runner.Runner;
 import org.junit.runner.manipulation.Filter;
+<<<<<<< HEAD
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
@@ -34,6 +42,12 @@ import org.junit.runner.notification.RunNotifier;
 /**
  * Adapter between JUnit 3.8.x API and JUnit 4.x API for execution of tests
  * and listening of events (test start, test finish, test failure).
+=======
+
+/**
+ * Adapter between JUnit 3.8.x API and JUnit 4.x API for execution of tests
+ * and listening of events (test start, test finish, test failure, test skipped).
+>>>>>>> refs/remotes/apache/master
  * The constructor is passed a JUnit 4 test class and a list of name of methods
  * in it that should be executed. Method {@link #run run(TestResult)} executes
  * the given JUnit-4-style test methods and notifies the given {@code TestResult}
@@ -46,11 +60,19 @@ public class JUnit4TestMethodAdapter implements Test {
     private final Class testClass;
     private final String[] methodNames;
     private final Runner runner;
+<<<<<<< HEAD
     private final Cache cache;
 
     /**
      * Creates a new adapter for the given class and a method within the class.
      * 
+=======
+    private final CustomJUnit4TestAdapterCache cache;
+
+    /**
+     * Creates a new adapter for the given class and a method within the class.
+     *
+>>>>>>> refs/remotes/apache/master
      * @param testClass test class containing the method to be executed
      * @param methodNames names of the test methods that are to be executed
      * @exception  java.lang.IllegalArgumentException
@@ -74,8 +96,13 @@ public class JUnit4TestMethodAdapter implements Test {
             }
         }
         this.testClass = testClass;
+<<<<<<< HEAD
         this.methodNames = methodNames;
         this.cache = Cache.instance;
+=======
+        this.methodNames = methodNames.clone();
+        this.cache = CustomJUnit4TestAdapterCache.getInstance();
+>>>>>>> refs/remotes/apache/master
 
         // Warning: If 'testClass' is an old-style (pre-JUnit-4) class,
         // then all its test methods will be executed by the returned runner!
@@ -104,11 +131,19 @@ public class JUnit4TestMethodAdapter implements Test {
     public Class getTestClass() {
         return testClass;
     }
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> refs/remotes/apache/master
     public void run(final TestResult result) {
         runner.run(cache.getNotifier(result));
     }
 
+<<<<<<< HEAD
+=======
+    @Override
+>>>>>>> refs/remotes/apache/master
     public String toString() {
         String testClassName = testClass.getName();
         StringBuilder buf = new StringBuilder(testClassName.length()
@@ -146,6 +181,10 @@ public class JUnit4TestMethodAdapter implements Test {
             this.methodNames = methodNames;
         }
 
+<<<<<<< HEAD
+=======
+        @Override
+>>>>>>> refs/remotes/apache/master
         public boolean shouldRun(Description description) {
             if (methodNames.length == 0) {
                 return false;
@@ -167,9 +206,16 @@ public class JUnit4TestMethodAdapter implements Test {
                     }
                 }
             }
+<<<<<<< HEAD
             return false;					
         }
 
+=======
+            return false;
+        }
+
+        @Override
+>>>>>>> refs/remotes/apache/master
         public String describe() {
             StringBuilder buf = new StringBuilder(40);
             if (methodNames.length == 0) {
@@ -188,6 +234,7 @@ public class JUnit4TestMethodAdapter implements Test {
 
     }
 
+<<<<<<< HEAD
     /**
      * Effectively a copy of {@code JUnit4TestAdapterCache}, except that its
      * method {@code getNotifier()} does not require an argument
@@ -223,5 +270,7 @@ public class JUnit4TestMethodAdapter implements Test {
 	}
 
     }
+=======
+>>>>>>> refs/remotes/apache/master
 
 }

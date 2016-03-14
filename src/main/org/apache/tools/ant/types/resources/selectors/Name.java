@@ -22,6 +22,7 @@ import org.apache.tools.ant.types.RegularExpression;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.selectors.SelectorUtils;
 import org.apache.tools.ant.util.regexp.Regexp;
+import org.apache.tools.ant.util.regexp.RegexpUtil;
 
 /**
  * Name ResourceSelector.
@@ -95,7 +96,7 @@ public class Name implements ResourceSelector {
     }
 
     /**
-     * Attribute specifing whether to ignore the difference
+     * Attribute specifying whether to ignore the difference
      * between / and \ (the two common directory characters).
      * @param handleDirSep a boolean, default is false.
      * @since Ant 1.8.0
@@ -137,11 +138,7 @@ public class Name implements ResourceSelector {
                 reg.setPattern(regex);
                 expression = reg.getRegexp(project);
             }
-            int options = Regexp.MATCH_DEFAULT;
-            if (!cs) {
-                options |= Regexp.MATCH_CASE_INSENSITIVE;
-            }
-            return expression.matches(modify(name), options);
+            return expression.matches(modify(name), RegexpUtil.asOptions(cs));
         }
     }
 

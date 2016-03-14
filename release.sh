@@ -17,20 +17,41 @@
 # this is a first attempt to document the build of the distribution
 # paths are hard-coded and obviously this is for a Cygwin/Windows combo
 #######################################################################
-rm -rf bootstrap build dist distribution
+rm -rf bootstrap build dist distribution java-repository
 unset ANT_HOME
-export JAVA_HOME=/cygdrive/c/j2sdk1.4.2_19
+# OS specific support.  $var _must_ be set to either true or false.
+cygwin=false;
+darwin=false;
+mingw=false;
+linux=false;
+case "`uname`" in
+  CYGWIN*) cygwin=true ;;
+  Darwin*) darwin=true;;
+  MINGW*) mingw=true ;;
+  Linux) linux=true ;;
+esac
+if $cygwin ; then
+  export JAVA_HOME="/cygdrive/c/Program Files/Java/jdk1.5.0_22"
+  JDK_VERSION=1.5
+fi
+if $darwin; then
+   export JAVA_HOME=/System/Library/Frameworks/JavaVM.framework/Home
+   JDK_VERSION=1.6
+fi  
+if $linux; then
+   export JAVA_HOME=/usr/lib/jvm/java-6-openjdk
+   JDK_VERSION=1.6
+fi
+# check that one can build under maven
+mvn -f src/etc/poms/pom.xml -DskipTests  package
+rm -rf target
 export PATH=$JAVA_HOME/bin:$PATH
 echo ANT_HOME=$ANT_HOME
 echo JAVA_HOME=$JAVA_HOME
 which java
-echo running first build under JDK 1.4
-./build.sh
-export JAVA_HOME="/cygdrive/c/Program Files/Java/jdk1.5.0_22"
-export PATH=$JAVA_HOME/bin:$PATH
-echo ANT_HOME=$ANT_HOME
-echo JAVA_HOME=$JAVA_HOME
-which java
-echo running second build under JDK 1.5 including tests
-./build.sh distribution run-tests
+echo running build under JDK $JDK_VERSION
+./build.sh dist-lite 
+echo running the tests and doing the distribution
+dist/bin/ant -nouserlib -lib lib/optional  run-tests distribution
+
 

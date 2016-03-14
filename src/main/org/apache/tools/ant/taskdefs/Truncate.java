@@ -20,7 +20,6 @@ package org.apache.tools.ant.taskdefs;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.Iterator;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -126,9 +125,8 @@ public class Truncate extends Task {
         if (path == null) {
             throw new BuildException(NO_CHILD);
         }
-        for (Iterator it = path.iterator(); it.hasNext();) {
-            Resource r = (Resource) it.next();
-            File f = ((FileProvider) r.as(FileProvider.class)).getFile();
+        for (Resource r : path) {
+            File f = r.as(FileProvider.class).getFile();
             if (shouldProcess(f)) {
                 process(f);
             }

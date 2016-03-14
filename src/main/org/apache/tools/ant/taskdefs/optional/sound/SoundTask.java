@@ -21,6 +21,7 @@ package org.apache.tools.ant.taskdefs.optional.sound;
 import java.io.File;
 import java.util.Random;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
@@ -112,7 +113,7 @@ public class SoundTask extends Task {
 
         /**
          * Sets the duration in milliseconds the file should be played; optional.
-         * @param duration the duration in millisconds
+         * @param duration the duration in milliseconds
          */
         public void setDuration(Long duration) {
             this.duration = duration;

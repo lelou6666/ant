@@ -19,6 +19,7 @@ package org.apache.tools.ant.types;
 
 import java.util.Stack;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 
@@ -31,7 +32,7 @@ public final class AntFilterReader
 
     private String className;
 
-    private final Vector parameters = new Vector();
+    private final Vector<Parameter> parameters = new Vector<Parameter>();
 
     private Path classpath;
 
@@ -160,7 +161,7 @@ public final class AntFilterReader
         super.setRefid(r);
     }
 
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;

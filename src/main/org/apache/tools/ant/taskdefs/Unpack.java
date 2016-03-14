@@ -20,6 +20,7 @@ package org.apache.tools.ant.taskdefs;
 
 
 import java.io.File;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.Resource;
@@ -91,7 +92,7 @@ public abstract class Unpack extends Task {
             throw new BuildException(
                 "the archive " + src.getName() + " can't be a directory");
         }
-        FileProvider fp = (FileProvider) src.as(FileProvider.class);
+        FileProvider fp = src.as(FileProvider.class);
         if (fp != null) {
             source = fp.getFile();
         } else if (!supportsNonFileResources()) {
@@ -113,7 +114,7 @@ public abstract class Unpack extends Task {
             throw new BuildException("only single argument resource collections"
                                      + " are supported as archives");
         }
-        setSrcResource((Resource) a.iterator().next());
+        setSrcResource(a.iterator().next());
     }
 
     /**
@@ -130,6 +131,10 @@ public abstract class Unpack extends Task {
         }
 
         if (dest == null) {
+            if (source == null) {
+                throw new BuildException("dest is required when using a non-filesystem source",
+                                         getLocation());
+            }
             dest = new File(source.getParent());
         }
 
@@ -140,7 +145,8 @@ public abstract class Unpack extends Task {
     }
 
     private void createDestFile(String defaultExtension) {
-        String sourceName = source.getName();
+        String sourceName = source == null
+            ? getLastNamePart(srcResource) : source.getName();
         int len = sourceName.length();
         if (defaultExtension != null
             && len > defaultExtension.length()
@@ -191,4 +197,9 @@ public abstract class Unpack extends Task {
         return false;
     }
 
+    private String getLastNamePart(Resource r) {
+        String n = r.getName();
+        int idx = n.lastIndexOf("/");
+        return idx < 0 ? n : n.substring(idx + 1);
+    }
 }

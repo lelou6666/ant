@@ -21,6 +21,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Vector;
 
+import org.apache.tools.ant.BuildException;
+
 /**
  * A set of helper methods related to string manipulation.
  *
@@ -47,7 +49,7 @@ public final class StringUtils {
      * @param data the string to split up into lines.
      * @return the list of lines available in the string.
      */
-    public static Vector lineSplit(String data) {
+    public static Vector<String> lineSplit(String data) {
         return split(data, '\n');
     }
 
@@ -58,8 +60,8 @@ public final class StringUtils {
      * @param ch the separator character.
      * @return the list of elements.
      */
-    public static Vector split(String data, int ch) {
-        Vector elems = new Vector();
+    public static Vector<String> split(String data, int ch) {
+        Vector<String> elems = new Vector<String>();
         int pos = -1;
         int i = 0;
         while ((pos = data.indexOf(ch, i)) != -1) {
@@ -77,17 +79,10 @@ public final class StringUtils {
      * @param from the occurrence to replace.
      * @param to the occurrence to be used as a replacement.
      * @return the new string with replaced occurrences.
+     * @deprecated Use {@link String#replace(CharSequence, CharSequence)} now.
      */
     public static String replace(String data, String from, String to) {
-        StringBuffer buf = new StringBuffer(data.length());
-        int pos = -1;
-        int i = 0;
-        while ((pos = data.indexOf(from, i)) != -1) {
-            buf.append(data.substring(i, pos)).append(to);
-            i = pos + from.length();
-        }
-        buf.append(data.substring(i));
-        return buf.toString();
+        return data.replace(from, to);
     }
 
     /**
@@ -145,7 +140,7 @@ public final class StringUtils {
      * xml does not do "c" like interpretation of strings.
      * i.e. \n\r\t etc.
      * this method processes \n, \r, \t, \f, \\
-     * also subs \s -> " \n\r\t\f"
+     * also subs \s -&gt; " \n\r\t\f"
      * a trailing '\' will be ignored
      *
      * @param input raw string with possible embedded '\'s
@@ -239,7 +234,11 @@ public final class StringUtils {
             }
             humanSize = humanSize.substring(0, humanSize.length() - trim);
         }
-        return factor * Long.parseLong(humanSize);
+        try {
+            return factor * Long.parseLong(humanSize);
+        } catch (NumberFormatException e) {
+            throw new BuildException("Failed to parse \"" + humanSize + "\"", e);
+        }
     }
 
     /**

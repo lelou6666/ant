@@ -18,26 +18,35 @@
 
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.BuildFileTest;
+import org.apache.tools.ant.BuildFileRule;
 import org.apache.tools.ant.DirectoryScanner;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  */
-public class DefaultExcludesTest extends BuildFileTest {
+public class DefaultExcludesTest {
 
-    public DefaultExcludesTest(String name) {
-        super(name);
-    }
+    @Rule
+    public final BuildFileRule buildRule = new BuildFileRule();
 
+    @Before
     public void setUp() {
-        configureProject("src/etc/testcases/taskdefs/defaultexcludes.xml");
+        buildRule.configureProject("src/etc/testcases/taskdefs/defaultexcludes.xml");
     }
 
+    @After
     public void tearDown() {
-        project.executeTarget("cleanup");
+        buildRule.executeTarget("cleanup");
     }
 
     // Output the default excludes
+    @Test
     public void test1() {
         String[] expected = {
                           "**/*~",
@@ -53,12 +62,27 @@ public class DefaultExcludesTest extends BuildFileTest {
                           "**/vssver.scc",
                           "**/.svn",
                           "**/.svn/**",
+                          "**/.git",
+                          "**/.git/**",
+                          "**/.gitattributes",
+                          "**/.gitignore",
+                          "**/.gitmodules",
+                          "**/.hg",
+                          "**/.hg/**",
+                          "**/.hgignore",
+                          "**/.hgsub",
+                          "**/.hgsubstate",
+                          "**/.hgtags",
+                          "**/.bzr",
+                          "**/.bzr/**",
+                          "**/.bzrignore",
                           "**/.DS_Store"};
-        project.executeTarget("test1");
-        assertEquals("current default excludes", expected, DirectoryScanner.getDefaultExcludes());
+        buildRule.getProject().executeTarget("test1");
+        assertArrayContentsEquals("current default excludes", expected, DirectoryScanner.getDefaultExcludes());
     }
 
     // adding something to the excludes'
+    @Test
     public void test2() {
         String[] expected = {
                           "**/*~",
@@ -74,13 +98,28 @@ public class DefaultExcludesTest extends BuildFileTest {
                           "**/vssver.scc",
                           "**/.svn",
                           "**/.svn/**",
+                          "**/.git",
+                          "**/.git/**",
+                          "**/.gitattributes",
+                          "**/.gitignore",
+                          "**/.gitmodules",
+                          "**/.hg",
+                          "**/.hg/**",
+                          "**/.hgignore",
+                          "**/.hgsub",
+                          "**/.hgsubstate",
+                          "**/.hgtags",
+                          "**/.bzr",
+                          "**/.bzr/**",
+                          "**/.bzrignore",
                           "**/.DS_Store",
                           "foo"};
-        project.executeTarget("test2");
-        assertEquals("current default excludes", expected, DirectoryScanner.getDefaultExcludes());
+        buildRule.executeTarget("test2");
+        assertArrayContentsEquals("current default excludes", expected, DirectoryScanner.getDefaultExcludes());
     }
 
     // removing something from the defaults
+    @Test
     public void test3() {
         String[] expected = {
                           "**/*~",
@@ -96,11 +135,26 @@ public class DefaultExcludesTest extends BuildFileTest {
                           "**/vssver.scc",
                           "**/.svn",
                           "**/.svn/**",
+                          "**/.git",
+                          "**/.git/**",
+                          "**/.gitattributes",
+                          "**/.gitignore",
+                          "**/.gitmodules",
+                          "**/.hg",
+                          "**/.hg/**",
+                          "**/.hgignore",
+                          "**/.hgsub",
+                          "**/.hgsubstate",
+                          "**/.hgtags",
+                          "**/.bzr",
+                          "**/.bzr/**",
+                          "**/.bzrignore",
                           "**/.DS_Store"};
-        project.executeTarget("test3");
-        assertEquals("current default excludes", expected, DirectoryScanner.getDefaultExcludes());
+        buildRule.executeTarget("test3");
+        assertArrayContentsEquals("current default excludes", expected, DirectoryScanner.getDefaultExcludes());
     }
-    private void assertEquals(String message, String[] expected, String[] actual) {
+
+    private void assertArrayContentsEquals(String message, String[] expected, String[] actual) {
         // check that both arrays have the same size
         assertEquals(message + " : string array length match", expected.length, actual.length);
         for (int counter=0; counter < expected.length; counter++) {
@@ -109,7 +163,7 @@ public class DefaultExcludesTest extends BuildFileTest {
                 found |= expected[counter].equals(actual[i]);
             }
             assertTrue(message + " : didn't find element "
-                       + expected[counter] + " in array match", found);
+                    + expected[counter] + " in array match", found);
         }
 
     }

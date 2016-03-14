@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.util.FileUtils;
 
@@ -51,8 +52,8 @@ public class GUnzip extends Unpack {
      * Implement the gunzipping.
      */
     protected void extract() {
-        if (source.lastModified() > dest.lastModified()) {
-            log("Expanding " + source.getAbsolutePath() + " to "
+        if (srcResource.getLastModified() > dest.lastModified()) {
+            log("Expanding " + srcResource.getName() + " to "
                         + dest.getAbsolutePath());
 
             FileOutputStream out = null;

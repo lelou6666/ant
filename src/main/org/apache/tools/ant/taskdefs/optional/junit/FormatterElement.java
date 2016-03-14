@@ -18,11 +18,13 @@
 
 package org.apache.tools.ant.taskdefs.optional.junit;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
-import java.io.BufferedOutputStream;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import org.apache.tools.ant.BuildException;
@@ -309,11 +311,7 @@ public class FormatterElement {
         JUnitTaskMirror.JUnitResultFormatterMirror r =
             (JUnitTaskMirror.JUnitResultFormatterMirror) o;
         if (useFile && outFile != null) {
-            try {
-                out = new BufferedOutputStream(new FileOutputStream(outFile));
-            } catch (java.io.IOException e) {
-                throw new BuildException("Unable to open file " + outFile, e);
-            }
+            out = new DelayedFileOutputStream(outFile);
         }
         r.setOutput(out);
 
@@ -326,8 +324,10 @@ public class FormatterElement {
                 // there is already a project reference so dont overwrite this
                 needToSetProjectReference = false;
             }
-        } catch (Exception e) {
+        } catch (NoSuchFieldException e) {
             // no field present, so no previous reference exists
+        } catch (IllegalAccessException e) {
+            throw new BuildException(e);
         }
 
         if (needToSetProjectReference) {
@@ -335,8 +335,12 @@ public class FormatterElement {
             try {
                 setter = r.getClass().getMethod("setProject", new Class[] {Project.class});
                 setter.invoke(r, new Object[] {project});
-            } catch (Exception e) {
+            } catch (NoSuchMethodException e) {
                 // no setProject to invoke; just ignore
+            } catch (IllegalAccessException e) {
+                throw new BuildException(e);
+            } catch (InvocationTargetException e) {
+                throw new BuildException(e);
             }
         }
 
@@ -352,6 +356,46 @@ public class FormatterElement {
         /** {@inheritDoc}. */
         public String[] getValues() {
             return new String[] {"plain", "xml", "brief", "failure"};
+        }
+    }
+
+    /**
+     * A standard FileOutputStream creates a file as soon as it's opened. This
+     * class delays the creation of the file until the first time a caller attempts
+     * to write to it so we don't end up with empty files if the listeners don't use
+     * them.
+     */
+    private static class DelayedFileOutputStream extends OutputStream {
+
+        private BufferedOutputStream outputStream;
+        private final File file;
+
+        public DelayedFileOutputStream(File file) {
+            this.file = file;
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            synchronized (this) {
+                if (outputStream == null) {
+                    outputStream = new BufferedOutputStream(new FileOutputStream(file));
+                }
+            }
+            outputStream.write(b);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            if (outputStream != null) {
+                outputStream.flush();
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (outputStream != null) {
+                outputStream.close();
+            }
         }
     }
 }

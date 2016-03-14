@@ -23,21 +23,22 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ExitException;
+import org.apache.tools.ant.ExitStatusException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.ExitStatusException;
+import org.apache.tools.ant.taskdefs.condition.Os;
+import org.apache.tools.ant.types.Assertions;
 import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.CommandlineJava;
 import org.apache.tools.ant.types.Environment;
 import org.apache.tools.ant.types.Path;
-import org.apache.tools.ant.types.PropertySet;
-import org.apache.tools.ant.types.Reference;
-import org.apache.tools.ant.types.Assertions;
 import org.apache.tools.ant.types.Permissions;
+import org.apache.tools.ant.types.PropertySet;
 import org.apache.tools.ant.types.RedirectorElement;
-import org.apache.tools.ant.taskdefs.condition.Os;
+import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.util.KeepAliveInputStream;
 
 /**
@@ -76,7 +77,7 @@ public class Java extends Task {
     private boolean spawn = false;
     private boolean incompatibleWithSpawn = false;
 
-    private static final String TIMEOUT_MESSAGE = 
+    private static final String TIMEOUT_MESSAGE =
         "Timeout: killed the sub-process";
 
     /**
@@ -141,11 +142,16 @@ public class Java extends Task {
      */
     protected void checkConfiguration() throws BuildException {
         String classname = getCommandLine().getClassname();
-        if (classname == null && getCommandLine().getJar() == null) {
+        String module = getCommandLine().getModule();
+        if (classname == null && getCommandLine().getJar() == null && module == null) {
             throw new BuildException("Classname must not be null.");
         }
         if (!fork && getCommandLine().getJar() != null) {
             throw new BuildException("Cannot execute a jar in non-forked mode."
+                                     + " Please set fork='true'. ");
+        }
+        if (!fork && getCommandLine().getModule() != null) {
+            throw new BuildException("Cannot execute a module in non-forked mode."
                                      + " Please set fork='true'. ");
         }
         if (spawn && !fork) {
@@ -289,6 +295,46 @@ public class Java extends Task {
     }
 
     /**
+     * Set the modulepath to be used when running the Java class.
+     *
+     * @param mp an Ant Path object containing the modulepath.
+     * @since 1.9.7
+     */
+    public void setModulepath(Path mp) {
+        createModulepath().append(mp);
+    }
+
+    /**
+     * Add a path to the modulepath.
+     *
+     * @return created modulepath.
+     * @since 1.9.7
+     */
+    public Path createModulepath() {
+        return getCommandLine().createModulepath(getProject()).createPath();
+    }
+
+    /**
+     * Set the modulepath to use by reference.
+     *
+     * @param r a reference to an existing modulepath.
+     * @since 1.9.7
+     */
+    public void setModulepathRef(Reference r) {
+        createModulepath().setRefid(r);
+    }
+
+    /**
+     * Add a path to the upgrademodulepath.
+     *
+     * @return created upgrademodulepath.
+     * @since 1.9.7
+     */
+    public Path createUpgrademodulepath() {
+        return getCommandLine().createUpgrademodulepath(getProject()).createPath();
+    }
+
+    /**
      * Set the permissions for the application run inside the same JVM.
      * @since Ant 1.6
      * @return Permissions.
@@ -315,8 +361,8 @@ public class Java extends Task {
      * @throws BuildException if there is also a main class specified.
      */
     public void setJar(File jarfile) throws BuildException {
-        if (getCommandLine().getClassname() != null) {
-            throw new BuildException("Cannot use 'jar' and 'classname' "
+        if (getCommandLine().getClassname() != null || getCommandLine().getModule() != null) {
+            throw new BuildException("Cannot use 'jar' with 'classname' or 'module' "
                                      + "attributes in same command.");
         }
         getCommandLine().setJar(jarfile.getAbsolutePath());
@@ -338,6 +384,22 @@ public class Java extends Task {
     }
 
     /**
+     * Set the Java module to execute.
+     *
+     * @param module the name of the module.
+     *
+     * @throws BuildException if the jar attribute has been set.
+     * @since 1.9.7
+     */
+    public void setModule(String module) throws BuildException {
+        if (getCommandLine().getJar() != null) {
+            throw new BuildException("Cannot use 'jar' and 'module' "
+                                     + "attributes in same command");
+        }
+        getCommandLine().setModule(module);
+    }
+
+    /**
      * Deprecated: use nested arg instead.
      * Set the command line arguments for the class.
      *
@@ -354,7 +416,7 @@ public class Java extends Task {
     /**
      * If set, system properties will be copied to the cloned VM--as
      * well as the bootclasspath unless you have explicitly specified
-     * a bootclaspath.
+     * a bootclasspath.
      *
      * <p>Doesn't have any effect unless fork is true.</p>
      * @param cloneVm if true copy system properties.
@@ -619,7 +681,7 @@ public class Java extends Task {
      */
     public void setAppend(boolean append) {
         redirector.setAppend(append);
-        incompatibleWithSpawn = true;
+        incompatibleWithSpawn |= append;
     }
 
     /**
@@ -732,7 +794,7 @@ public class Java extends Task {
         if (redirector.getErrorStream() != null) {
             redirector.handleErrorFlush(output);
         } else {
-            super.handleErrorOutput(output);
+            super.handleErrorFlush(output);
         }
     }
 
@@ -896,11 +958,12 @@ public class Java extends Task {
      * @param args  arguments for the class.
      * @throws BuildException in case of IOException in the execution.
      */
-    protected void run(String classname, Vector args) throws BuildException {
+    protected void run(String classname, Vector<String> args) throws BuildException {
         CommandlineJava cmdj = new CommandlineJava();
         cmdj.setClassname(classname);
-        for (int i = 0; i < args.size(); i++) {
-            cmdj.createArgument().setValue((String) args.elementAt(i));
+        final int size = args.size();
+        for (int i = 0; i < size; i++) {
+            cmdj.createArgument().setValue(args.elementAt(i));
         }
         run(cmdj);
     }

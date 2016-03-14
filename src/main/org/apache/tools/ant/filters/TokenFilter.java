@@ -19,16 +19,18 @@ package org.apache.tools.ant.filters;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.Vector;
 import java.util.Enumeration;
+import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ProjectComponent;
 import org.apache.tools.ant.types.RegularExpression;
 import org.apache.tools.ant.types.Substitution;
-import org.apache.tools.ant.util.Tokenizer;
 import org.apache.tools.ant.util.LineTokenizer;
 import org.apache.tools.ant.util.StringUtils;
+import org.apache.tools.ant.util.Tokenizer;
 import org.apache.tools.ant.util.regexp.Regexp;
+import org.apache.tools.ant.util.regexp.RegexpUtil;
 
 /**
  * This splits up input into tokens and passes
@@ -57,7 +59,7 @@ public class TokenFilter extends BaseFilterReader
 
 
     /** string filters */
-    private Vector    filters   = new Vector();
+    private Vector<Filter>    filters   = new Vector<Filter>();
     /** the tokenizer to use on the input stream */
     private Tokenizer tokenizer = null;
     /** the output token termination */
@@ -108,8 +110,8 @@ public class TokenFilter extends BaseFilterReader
             if (line == null) {
                 return -1;
             }
-            for (Enumeration e = filters.elements(); e.hasMoreElements();) {
-                Filter filter = (Filter) e.nextElement();
+            for (Enumeration<Filter> e = filters.elements(); e.hasMoreElements();) {
+                Filter filter = e.nextElement();
                 line = filter.filter(line);
                 if (line == null) {
                     break;
@@ -364,7 +366,7 @@ public class TokenFilter extends BaseFilterReader
 
         /**
          * Filter a string 'line' replacing from with to
-         * (C&P from the Replace task)
+         * (Copy&amp;Paste from the Replace task)
          * @param line the string to be filtered
          * @return the filtered line
          */
@@ -683,7 +685,7 @@ public class TokenFilter extends BaseFilterReader
      * xml does not do "c" like interpretation of strings.
      * i.e. \n\r\t etc.
      * this method processes \n, \r, \t, \f, \\
-     * also subs \s -> " \n\r\t\f"
+     * also subs \s with " \n\r\t\f"
      * a trailing '\' will be ignored
      *
      * @param input raw string with possible embedded '\'s
@@ -695,32 +697,16 @@ public class TokenFilter extends BaseFilterReader
 
     /**
      * convert regex option flag characters to regex options
-     * <dl>
+     * <ul>
      *   <li>g -  Regexp.REPLACE_ALL</li>
      *   <li>i -  Regexp.MATCH_CASE_INSENSITIVE</li>
      *   <li>m -  Regexp.MATCH_MULTILINE</li>
      *   <li>s -  Regexp.MATCH_SINGLELINE</li>
-     * </dl>
+     * </ul>
      * @param flags the string containing the flags
      * @return the Regexp option bits
      */
     public static int convertRegexOptions(String flags) {
-        if (flags == null) {
-            return 0;
-        }
-        int options = 0;
-        if (flags.indexOf('g') != -1) {
-            options |= Regexp.REPLACE_ALL;
-        }
-        if (flags.indexOf('i') != -1) {
-            options |= Regexp.MATCH_CASE_INSENSITIVE;
-        }
-        if (flags.indexOf('m') != -1) {
-            options |= Regexp.MATCH_MULTILINE;
-        }
-        if (flags.indexOf('s') != -1) {
-            options |= Regexp.MATCH_SINGLELINE;
-        }
-        return options;
+        return RegexpUtil.asOptions(flags);
     }
 }

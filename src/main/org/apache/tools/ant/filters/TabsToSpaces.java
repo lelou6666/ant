@@ -19,6 +19,7 @@ package org.apache.tools.ant.filters;
 
 import java.io.IOException;
 import java.io.Reader;
+
 import org.apache.tools.ant.types.Parameter;
 
 /**
@@ -26,7 +27,7 @@ import org.apache.tools.ant.types.Parameter;
  *
  * Example:
  *
- * <pre>&lt;tabtospaces tablength=&quot;8&quot;/&gt;</pre>
+ * <pre>&lt;tabstospaces tablength=&quot;8&quot;/&gt;</pre>
  *
  * Or:
  *

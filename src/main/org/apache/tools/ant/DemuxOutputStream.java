@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.WeakHashMap;
 
+
 /**
  * Logs content written by a thread and forwards the buffers onto the
  * project object which will forward the content to the appropriate
@@ -53,7 +54,7 @@ public class DemuxOutputStream extends OutputStream {
     private static final int MAX_SIZE = 1024;
 
     /** Initial buffer size. */
-    private static final int INTIAL_SIZE = 132;
+    private static final int INITIAL_SIZE = 132;
 
     /** Carriage return */
     private static final int CR = 0x0d;
@@ -62,7 +63,7 @@ public class DemuxOutputStream extends OutputStream {
     private static final int LF = 0x0a;
 
     /** Mapping from thread to buffer (Thread to BufferInfo). */
-    private WeakHashMap buffers = new WeakHashMap();
+    private WeakHashMap<Thread, BufferInfo> buffers = new WeakHashMap<Thread, BufferInfo>();
 
     /**
      * The project to send output to.
@@ -99,7 +100,7 @@ public class DemuxOutputStream extends OutputStream {
         BufferInfo bufferInfo = (BufferInfo) buffers.get(current);
         if (bufferInfo == null) {
             bufferInfo = new BufferInfo();
-            bufferInfo.buffer = new ByteArrayOutputStream(INTIAL_SIZE);
+            bufferInfo.buffer = new ByteArrayOutputStream(INITIAL_SIZE);
             bufferInfo.crSeen = false;
             buffers.put(current, bufferInfo);
         }

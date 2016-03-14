@@ -23,9 +23,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
@@ -133,7 +135,7 @@ public class EjbJar extends MatchingTask {
     public static class NamingScheme extends EnumeratedAttribute {
         /**
          * Naming scheme where generated jar is determined from the ejb-name in
-         * the deployment descripor
+         * the deployment descriptor
          */
         public static final String EJB_NAME = "ejb-name";
 

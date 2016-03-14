@@ -17,15 +17,15 @@
  */
 package org.apache.tools.ant.types.resources;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Stack;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 
 /**
@@ -67,7 +67,7 @@ public abstract class ResourceDecorator extends Resource {
                                      + " are supported");
         }
         setChecked(false);
-        resource = (Resource) a.iterator().next();
+        resource = a.iterator().next();
     }
 
     /**
@@ -159,14 +159,14 @@ public abstract class ResourceDecorator extends Resource {
     /**
      * {@inheritDoc}
      */
-    public Object as(Class clazz) {
+    public <T> T as(Class<T> clazz) {
         return getResource().as(clazz);
     }
 
     /**
      * {@inheritDoc}
      */
-    public int compareTo(Object other) {
+    public int compareTo(Resource other) {
         if (other == this) {
             return 0;
         }
@@ -203,7 +203,7 @@ public abstract class ResourceDecorator extends Resource {
     /**
      * {@inheritDoc}
      */
-    protected void dieOnCircularReference(final Stack stack,
+    protected void dieOnCircularReference(final Stack<Object> stack,
                                           final Project project)
         throws BuildException {
         if (isChecked()) {

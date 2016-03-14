@@ -18,9 +18,8 @@
 
 package org.apache.tools.ant.types.mappers;
 
-import java.io.StringReader;
 import java.io.Reader;
-
+import java.io.StringReader;
 import java.util.Vector;
 
 import org.apache.tools.ant.BuildException;
@@ -70,7 +69,7 @@ public class FilterMapper extends FilterChain implements FileNameMapper {
             helper.setBufferSize(BUFFER_SIZE);
             helper.setPrimaryReader(stringReader);
             helper.setProject(getProject());
-            Vector filterChains = new Vector();
+            Vector<FilterChain> filterChains = new Vector<FilterChain>();
             filterChains.add(this);
             helper.setFilterChains(filterChains);
             String result = FileUtils.safeReadFully(helper.getAssembledReader());

@@ -18,21 +18,25 @@
 
 package org.apache.tools.ant.taskdefs.optional.ssh;
 
-import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.Session;
-
-import java.io.IOException;
 import java.io.File;
-
-import java.util.List;
-import java.util.LinkedList;
-import java.util.Iterator;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
+import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.util.ResourceUtils;
+
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.Session;
 
 /**
  * Ant task for sending files to remote machine over ssh/scp.
@@ -50,9 +54,10 @@ public class Scp extends SSHBase {
     private String fromUri;
     private String toUri;
     private boolean preserveLastModified = false;
-    private List fileSets = null;
+    private List<ResourceCollection> rcs = null;
     private boolean isFromRemote, isToRemote;
     private boolean isSftp = false;
+    private Integer fileMode, dirMode;
 
     /**
      * Sets the file to be transferred.  This can either be a remote
@@ -63,7 +68,7 @@ public class Scp extends SSHBase {
      * <i>user:password@host:/directory/path/*</i><br>
      * @param aFromUri a string representing the file to transfer.
      */
-    public void setFile(String aFromUri) {
+    public void setFile(final String aFromUri) {
         setFromUri(aFromUri);
         this.isFromRemote = isRemoteUri(this.fromUri);
     }
@@ -77,77 +82,77 @@ public class Scp extends SSHBase {
 
      * @param aToUri a string representing the target of the copy.
      */
-    public void setTodir(String aToUri) {
+    public void setTodir(final String aToUri) {
         setToUri(aToUri);
         this.isToRemote = isRemoteUri(this.toUri);
     }
 
     /**
-     * Similiar to {@link #setFile setFile} but explicitly states that
+     * Similar to {@link #setFile setFile} but explicitly states that
      * the file is a local file.  This is the only way to specify a
      * local file with a @ character.
      * @param aFromUri a string representing the source of the copy.
      * @since Ant 1.6.2
      */
-    public void setLocalFile(String aFromUri) {
+    public void setLocalFile(final String aFromUri) {
         setFromUri(aFromUri);
         this.isFromRemote = false;
     }
 
     /**
-     * Similiar to {@link #setFile setFile} but explicitly states that
+     * Similar to {@link #setFile setFile} but explicitly states that
      * the file is a remote file.
      * @param aFromUri a string representing the source of the copy.
      * @since Ant 1.6.2
      */
-    public void setRemoteFile(String aFromUri) {
+    public void setRemoteFile(final String aFromUri) {
         validateRemoteUri("remoteFile", aFromUri);
         setFromUri(aFromUri);
         this.isFromRemote = true;
      }
 
     /**
-     * Similiar to {@link #setTodir setTodir} but explicitly states
+     * Similar to {@link #setTodir setTodir} but explicitly states
      * that the directory is a local.  This is the only way to specify
      * a local directory with a @ character.
      * @param aToUri a string representing the target of the copy.
      * @since Ant 1.6.2
      */
-    public void setLocalTodir(String aToUri) {
+    public void setLocalTodir(final String aToUri) {
         setToUri(aToUri);
         this.isToRemote = false;
     }
 
     /**
-     * Sets flag to determine if file timestamp from
-     * remote system is to be preserved during copy.
+     * Sets flag to determine if file timestamp
+     * is to be preserved during copy.
      * @since Ant 1.8.0
      */
-    public void setPreservelastmodified(boolean yesOrNo) {
-    	this.preserveLastModified = yesOrNo;
-    }    
+    public void setPreservelastmodified(final boolean yesOrNo) {
+        this.preserveLastModified = yesOrNo;
+    }
 
     /**
-     * Similiar to {@link #setTodir setTodir} but explicitly states
+     * Similar to {@link #setTodir setTodir} but explicitly states
      * that the directory is a remote.
      * @param aToUri a string representing the target of the copy.
      * @since Ant 1.6.2
      */
-    public void setRemoteTodir(String aToUri) {
+    public void setRemoteTodir(final String aToUri) {
         validateRemoteUri("remoteToDir", aToUri);
         setToUri(aToUri);
         this.isToRemote = true;
     }
 
-    private static void validateRemoteUri(String type, String aToUri) {
-    	if (!isRemoteUri(aToUri)) {
+    private static void validateRemoteUri(final String type, final String aToUri) {
+        if (!isRemoteUri(aToUri)) {
             throw new BuildException(type + " '" + aToUri + "' is invalid. "
                                      + "The 'remoteToDir' attribute must "
                                      + "have syntax like the "
                                      + "following: user:password@host:/path"
                                      + " - the :password part is optional");
-    	}
-    } 
+        }
+    }
 
     /**
      * Changes the file name to the given name while receiving it,
@@ -155,7 +160,7 @@ public class Scp extends SSHBase {
      * @param aToUri a string representing the target of the copy.
      * @since Ant 1.6.2
      */
-    public void setLocalTofile(String aToUri) {
+    public void setLocalTofile(final String aToUri) {
         setToUri(aToUri);
         this.isToRemote = false;
     }
@@ -166,7 +171,7 @@ public class Scp extends SSHBase {
      * @param aToUri a string representing the target of the copy.
      * @since Ant 1.6.2
      */
-    public void setRemoteTofile(String aToUri) {
+    public void setRemoteTofile(final String aToUri) {
         validateRemoteUri("remoteToFile", aToUri);
         setToUri(aToUri);
         this.isToRemote = true;
@@ -177,51 +182,78 @@ public class Scp extends SSHBase {
      *
      * @param yesOrNo if true sftp protocol will be used.
      */
-    public void setSftp(boolean yesOrNo) {
+    public void setSftp(final boolean yesOrNo) {
         isSftp = yesOrNo;
     }
 
     /**
-     * Adds a FileSet tranfer to remote host.  NOTE: Either
+     * Set the file mode, defaults to "644".
+     * @since Ant 1.9.5
+     */
+    public void setFileMode(String fileMode) {
+        this.fileMode = Integer.parseInt(fileMode, 8);
+    }
+
+    /**
+     * Set the dir mode, defaults to "755".
+     * @since Ant 1.9.5
+     */
+    public void setDirMode(String dirMode) {
+        this.dirMode = Integer.parseInt(dirMode, 8);
+    }
+
+    /**
+     * Adds a FileSet transfer to remote host.  NOTE: Either
      * addFileSet() or setFile() are required.  But, not both.
      *
      * @param set FileSet to send to remote host.
      */
     public void addFileset(FileSet set) {
-        if (fileSets == null) {
-            fileSets = new LinkedList();
+        add(set);
+    }
+
+    /**
+     * Adds a ResourceCollection of local files to transfer to remote host.
+     * @param set ResourceCollection to send to remote host.
+     * @since Ant 1.9.7
+     */
+    public void add(ResourceCollection res) {
+        if (rcs == null) {
+            rcs = new LinkedList<ResourceCollection>();
         }
-        fileSets.add(set);
+        rcs.add(res);
     }
 
     /**
      * Initialize this task.
      * @throws BuildException on error
      */
+    @Override
     public void init() throws BuildException {
         super.init();
         this.toUri = null;
         this.fromUri = null;
-        this.fileSets = null;
+        this.rcs = null;
     }
 
     /**
      * Execute this task.
      * @throws BuildException on error
      */
+    @Override
     public void execute() throws BuildException {
         if (toUri == null) {
             throw exactlyOne(TO_ATTRS);
         }
-        if (fromUri == null && fileSets == null) {
+        if (fromUri == null && rcs == null) {
             throw exactlyOne(FROM_ATTRS, "one or more nested filesets");
         }
         try {
             if (isFromRemote && !isToRemote) {
                 download(fromUri, toUri);
             } else if (!isFromRemote && isToRemote) {
-                if (fileSets != null) {
-                    upload(fileSets, toUri);
+                if (rcs != null) {
+                    upload(rcs, toUri);
                 } else {
                     upload(fromUri, toUri);
                 }
@@ -233,10 +265,10 @@ public class Scp extends SSHBase {
                     + "must have syntax like the following: "
                     + "user:password@host:/path");
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             if (getFailonerror()) {
                 if(e instanceof BuildException) {
-                    BuildException be = (BuildException) e;
+                    final BuildException be = (BuildException) e;
                     if(be.getLocation() == null) {
                         be.setLocation(getLocation());
                     }
@@ -250,9 +282,9 @@ public class Scp extends SSHBase {
         }
     }
 
-    private void download(String fromSshUri, String toPath)
+    private void download(final String fromSshUri, final String toPath)
         throws JSchException, IOException {
-        String file = parseUri(fromSshUri);
+        final String file = parseUri(fromSshUri);
 
         Session session = null;
         try {
@@ -281,18 +313,26 @@ public class Scp extends SSHBase {
         }
     }
 
-    private void upload(List fileSet, String toSshUri)
+    private void upload(final List<ResourceCollection> rcs, final String toSshUri)
         throws IOException, JSchException {
-        String file = parseUri(toSshUri);
+        final String file = parseUri(toSshUri);
 
         Session session = null;
         try {
-            List list = new ArrayList(fileSet.size());
-            for (Iterator i = fileSet.iterator(); i.hasNext();) {
-                FileSet set = (FileSet) i.next();
-                Directory d = createDirectory(set);
-                if (d != null) {
-                    list.add(d);
+            final List<Directory> list = new ArrayList<Directory>(rcs.size());
+            for (final Iterator<ResourceCollection> i = rcs.iterator(); i.hasNext();) {
+                final ResourceCollection rc = (ResourceCollection) i.next();
+                if (rc instanceof FileSet && rc.isFilesystemOnly()) {
+                    FileSet fs = (FileSet) rc;
+                    final Directory d = createDirectory(fs);
+                    if (d != null) {
+                        list.add(d);
+                    }
+                } else {
+                       List<Directory> ds = createDirectoryCollection(rc);
+                       if (ds !=null) {
+                               list.addAll(ds);
+                       }
                 }
             }
             if (!list.isEmpty()) {
@@ -300,12 +340,18 @@ public class Scp extends SSHBase {
                 ScpToMessage message = null;
                 if (!isSftp) {
                     message = new ScpToMessage(getVerbose(), session,
-                                               list, file);
+                                               list, file, preserveLastModified);
                 } else {
                     message = new ScpToMessageBySftp(getVerbose(), session,
                                                      list, file);
                 }
                 message.setLogListener(this);
+                if (fileMode != null) {
+                    message.setFileMode(fileMode.intValue());
+                }
+                if (dirMode != null) {
+                    message.setDirMode(dirMode.intValue());
+                }
                 message.execute();
             }
         } finally {
@@ -315,9 +361,9 @@ public class Scp extends SSHBase {
         }
     }
 
-    private void upload(String fromPath, String toSshUri)
+    private void upload(final String fromPath, final String toSshUri)
         throws IOException, JSchException {
-        String file = parseUri(toSshUri);
+        final String file = parseUri(toSshUri);
 
         Session session = null;
         try {
@@ -326,7 +372,8 @@ public class Scp extends SSHBase {
             if (!isSftp) {
                 message =
                     new ScpToMessage(getVerbose(), session,
-                                     getProject().resolveFile(fromPath), file);
+                                     getProject().resolveFile(fromPath), file,
+                                     preserveLastModified);
             } else {
                 message =
                     new ScpToMessageBySftp(getVerbose(), session,
@@ -334,6 +381,12 @@ public class Scp extends SSHBase {
                                            file);
             }
             message.setLogListener(this);
+            if (fileMode != null) {
+                message.setFileMode(fileMode.intValue());
+            }
+            if (dirMode != null) {
+                message.setDirMode(dirMode.intValue());
+            }
             message.execute();
         } finally {
             if (session != null) {
@@ -342,17 +395,17 @@ public class Scp extends SSHBase {
         }
     }
 
-    private String parseUri(String uri) {
+    private String parseUri(final String uri) {
 
         int indexOfAt = uri.indexOf('@');
-        int indexOfColon = uri.indexOf(':');
+        final int indexOfColon = uri.indexOf(':');
 
         if (indexOfColon > -1 && indexOfColon < indexOfAt) {
             // user:password@host:/path notation
             // everything upto the last @ before the last : is considered
             // password. (so if the path contains an @ and a : it will not work)
             int indexOfCurrentAt = indexOfAt;
-            int indexOfLastColon = uri.lastIndexOf(':');
+            final int indexOfLastColon = uri.lastIndexOf(':');
             while (indexOfCurrentAt > -1 && indexOfCurrentAt < indexOfLastColon)
             {
                 indexOfAt = indexOfCurrentAt;
@@ -364,7 +417,7 @@ public class Scp extends SSHBase {
             // no password, will require keyfile
             setUsername(uri.substring(0, indexOfAt));
         } else {
-            throw new BuildException("no username was given.  Can't authenticate."); 
+            throw new BuildException("no username was given.  Can't authenticate.");
         }
 
         if (getUserInfo().getPassword() == null
@@ -374,7 +427,7 @@ public class Scp extends SSHBase {
                                      + "given.  Can't authenticate.");
         }
 
-        int indexOfPath = uri.indexOf(':', indexOfAt + 1);
+        final int indexOfPath = uri.indexOf(':', indexOfAt + 1);
         if (indexOfPath == -1) {
             throw new BuildException("no remote path in " + uri);
         }
@@ -387,26 +440,26 @@ public class Scp extends SSHBase {
         return remotePath;
     }
 
-    private static boolean isRemoteUri(String uri) {
+    private static boolean isRemoteUri(final String uri) {
         boolean isRemote = true;
-        int indexOfAt = uri.indexOf('@');
+        final int indexOfAt = uri.indexOf('@');
         if (indexOfAt < 0) {
             isRemote = false;
         }
         return isRemote;
     }
 
-    private Directory createDirectory(FileSet set) {
-        DirectoryScanner scanner = set.getDirectoryScanner(getProject());
+    private Directory createDirectory(final FileSet set) {
+        final DirectoryScanner scanner = set.getDirectoryScanner(getProject());
         Directory root = new Directory(scanner.getBasedir());
-        String[] files = scanner.getIncludedFiles();
+        final String[] files = scanner.getIncludedFiles();
         if (files.length != 0) {
             for (int j = 0; j < files.length; j++) {
-                String[] path = Directory.getPath(files[j]);
+                final String[] path = Directory.getPath(files[j]);
                 Directory current = root;
                 File currentParent = scanner.getBasedir();
                 for (int i = 0; i < path.length; i++) {
-                    File file = new File(currentParent, path[i]);
+                    final File file = new File(currentParent, path[i]);
                     if (file.isDirectory()) {
                         current.addDirectory(new Directory(file));
                         current = current.getChild(file);
@@ -423,26 +476,70 @@ public class Scp extends SSHBase {
         return root;
     }
 
-    private void setFromUri(String fromUri) {
+    private List<Directory> createDirectoryCollection(final ResourceCollection rc) {
+        // not a fileset or contains non-file resources
+        if (!rc.isFilesystemOnly()) {
+            throw new BuildException("Only FileSystem resources are supported.");
+        }
+
+        List<Directory> ds = new ArrayList<Directory>();
+        for (Resource r : rc) {
+               if (!r.isExists()) {
+                throw new BuildException("Could not find resource " + r.toLongString() + " to scp.");
+            }
+
+            FileProvider fp = r.as(FileProvider.class);
+            if (fp == null) {
+                throw new BuildException("Resource " + r.toLongString() + " is not a file.");
+            }
+
+            FileResource fr = ResourceUtils.asFileResource(fp);
+            File baseDir = fr.getBaseDir();
+            if (baseDir == null) {
+                throw new BuildException("basedir for resource " + r.toLongString() + " is undefined.");
+            }
+
+            // if the basedir is set, the name will be relative to that
+            String name = r.getName();
+            Directory root = new Directory(baseDir);
+            Directory current = root;
+            File currentParent = baseDir;
+            final String[] path = Directory.getPath(name);
+            for (int i = 0; i < path.length; i++) {
+                final File file = new File(currentParent, path[i]);
+                if (file.isDirectory()) {
+                    current.addDirectory(new Directory(file));
+                    current = current.getChild(file);
+                    currentParent = current.getDirectory();
+                } else if (file.isFile()) {
+                    current.addFile(file);
+                }
+            }
+            ds.add(root);
+       }
+        return ds;
+    }
+
+    private void setFromUri(final String fromUri) {
         if (this.fromUri != null) {
             throw exactlyOne(FROM_ATTRS);
         }
         this.fromUri = fromUri;
     }
 
-    private void setToUri(String toUri) {
+    private void setToUri(final String toUri) {
         if (this.toUri != null) {
             throw exactlyOne(TO_ATTRS);
         }
         this.toUri = toUri;
     }
 
-    private BuildException exactlyOne(String[] attrs) {
+    private BuildException exactlyOne(final String[] attrs) {
         return exactlyOne(attrs, null);
     }
 
-    private BuildException exactlyOne(String[] attrs, String alt) {
-        StringBuffer buf = new StringBuffer("Exactly one of ").append(
+    private BuildException exactlyOne(final String[] attrs, final String alt) {
+        final StringBuffer buf = new StringBuffer("Exactly one of ").append(
                 '[').append(attrs[0]);
         for (int i = 1; i < attrs.length; i++) {
             buf.append('|').append(attrs[i]);

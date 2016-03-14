@@ -20,6 +20,7 @@ package org.apache.tools.ant.filters;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.LinkedList;
+
 import org.apache.tools.ant.types.Parameter;
 import org.apache.tools.ant.util.LineTokenizer;
 
@@ -65,7 +66,7 @@ public final class TailFilter extends BaseParamFilterReader
     /** the position in the current line */
     private int       linePos   = 0;
 
-    private LinkedList lineList = new LinkedList();
+    private LinkedList<String> lineList = new LinkedList<String>();
 
     /**
      * Constructor for "dummy" instances.
@@ -212,7 +213,7 @@ public final class TailFilter extends BaseParamFilterReader
                 lineList.add(line);
                 if (lines == -1) {
                     if (lineList.size() > skip) {
-                        return (String) lineList.removeFirst();
+                        return lineList.removeFirst();
                     }
                 } else {
                     long linesToKeep = lines + (skip > 0 ? skip : 0);
@@ -235,7 +236,7 @@ public final class TailFilter extends BaseParamFilterReader
             }
         }
         if (lineList.size() > 0) {
-            return (String) lineList.removeFirst();
+            return lineList.removeFirst();
         }
         return null;
     }

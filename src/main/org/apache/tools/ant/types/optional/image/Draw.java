@@ -17,9 +17,10 @@
  */
 package org.apache.tools.ant.types.optional.image;
 
-import javax.media.jai.PlanarImage;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+
+import javax.media.jai.PlanarImage;
 
 /**
  *
@@ -78,7 +79,8 @@ public class Draw extends TransformOperation {
         BufferedImage bi = image.getAsBufferedImage();
         Graphics2D graphics = (Graphics2D) bi.getGraphics();
 
-        for (int i = 0; i < instructions.size(); i++) {
+        final int size = instructions.size();
+        for (int i = 0; i < size; i++) {
             ImageOperation instr = ((ImageOperation) instructions.elementAt(i));
             if (instr instanceof DrawOperation) {
                 PlanarImage op = ((DrawOperation) instr).executeDrawOperation();

@@ -18,9 +18,9 @@
 
 package org.apache.tools.ant.util;
 
-import java.io.InputStream;
 import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Iterator;
 
 import org.apache.tools.ant.Project;
@@ -37,7 +37,7 @@ public class ConcatResourceInputStream extends InputStream {
 
     private static final int EOF = -1;
     private boolean eof = false;
-    private Iterator iter;
+    private Iterator<Resource> iter;
     private InputStream currentStream;
     private ProjectComponent managingPc;
     private boolean ignoreErrors = false;

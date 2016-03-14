@@ -17,27 +17,28 @@
  */
 package org.apache.tools.ant.taskdefs.optional;
 
+import java.io.File;
+import java.net.MalformedURLException;
+import java.util.HashMap;
+import java.util.Iterator;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.XmlConstants;
-import org.xml.sax.XMLReader;
+import org.xml.sax.SAXException;
 import org.xml.sax.SAXNotRecognizedException;
 import org.xml.sax.SAXNotSupportedException;
-import org.xml.sax.SAXException;
-
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.ParserConfigurationException;
-import java.util.Iterator;
-import java.util.HashMap;
-import java.io.File;
-import java.net.MalformedURLException;
+import org.xml.sax.XMLReader;
 
 /**
  * Validate XML Schema documents.
  * This task validates XML schema documents. It requires an XML parser
- * that handles the relevant SAx, Xerces or JAXP options.
+ * that handles the relevant SAX, Xerces or JAXP options.
  *
  * To resolve remote referencies, Ant may need its proxy set up, using the
  * setproxy task.

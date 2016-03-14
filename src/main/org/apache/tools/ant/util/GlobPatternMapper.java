@@ -24,7 +24,7 @@ import org.apache.tools.ant.BuildException;
  * Implementation of FileNameMapper that does simple wildcard pattern
  * replacements.
  *
- * <p>This does simple translations like *.foo -> *.bar where the
+ * <p>This does simple translations like *.foo -&gt; *.bar where the
  * prefix to .foo will be left unchanged. It only handles a single *
  * character, use regular expressions for more complicated
  * situations.</p>
@@ -74,7 +74,7 @@ public class GlobPatternMapper implements FileNameMapper {
     private boolean caseSensitive = true;
 
     /**
-     * Attribute specifing whether to ignore the difference
+     * Attribute specifying whether to ignore the difference
      * between / and \ (the two common directory characters).
      * @param handleDirSep a boolean, default is false.
      * @since Ant 1.6.3
@@ -84,7 +84,16 @@ public class GlobPatternMapper implements FileNameMapper {
     }
 
     /**
-     * Attribute specifing whether to ignore the case difference
+     * Attribute specifying whether to ignore the difference
+     * between / and \ (the two common directory characters).
+     * @since Ant 1.8.3
+     */
+    public boolean getHandleDirSep() {
+        return handleDirSep;
+    }
+
+    /**
+     * Attribute specifying whether to ignore the case difference
      * in the names.
      *
      * @param caseSensitive a boolean, default is false.

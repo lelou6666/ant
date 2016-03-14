@@ -18,16 +18,16 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import java.io.File;
+import java.io.IOException;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Reference;
-
-import java.io.File;
-import java.io.IOException;
+import org.apache.tools.ant.util.FileNameMapper;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Copy the contents of a path to a destination, using the mapper of choice
@@ -159,7 +159,7 @@ public class CopyPath extends Task {
     }
 
     /**
-     * This is a very minimal derivative of the nomal copy logic.
+     * This is a very minimal derivative of the normal copy logic.
      *
      * @throws BuildException
      *             if something goes wrong with the build.

@@ -18,8 +18,9 @@
 
 package org.apache.tools.ant.input;
 
-import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.taskdefs.StreamPumper;
 import org.apache.tools.ant.util.FileUtils;
@@ -30,8 +31,6 @@ import org.apache.tools.ant.util.FileUtils;
  * @since Ant 1.7
  */
 public class GreedyInputHandler extends DefaultInputHandler {
-
-    private static final int BUFFER_SIZE = 1024;
 
     /**
      * Empty no-arg constructor

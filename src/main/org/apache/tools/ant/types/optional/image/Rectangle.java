@@ -17,10 +17,11 @@
  */
 package org.apache.tools.ant.types.optional.image;
 
-import javax.media.jai.PlanarImage;
 import java.awt.BasicStroke;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+
+import javax.media.jai.PlanarImage;
 
 /**
  *
@@ -99,7 +100,8 @@ public class Rectangle extends BasicShape implements DrawOperation {
         }
 
 
-        for (int i = 0; i < instructions.size(); i++) {
+        final int size = instructions.size();
+        for (int i = 0; i < size; i++) {
             ImageOperation instr = ((ImageOperation) instructions.elementAt(i));
             if (instr instanceof DrawOperation) {
                 PlanarImage img = ((DrawOperation) instr).executeDrawOperation();

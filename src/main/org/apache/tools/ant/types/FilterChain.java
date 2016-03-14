@@ -48,7 +48,7 @@ import org.apache.tools.ant.filters.TokenFilter;
 public class FilterChain extends DataType
     implements Cloneable {
 
-    private Vector filterReaders = new Vector();
+    private Vector<Object> filterReaders = new Vector<Object>();
 
     /**
      * Add an AntFilterReader filter.
@@ -68,7 +68,7 @@ public class FilterChain extends DataType
      *
      * @return a <code>Vector</code> value containing the filters
      */
-    public Vector getFilterReaders() {
+    public Vector<Object> getFilterReaders() {
         if (isReference()) {
             return ((FilterChain) getCheckedRef()).getFilterReaders();
         }
@@ -374,6 +374,7 @@ public class FilterChain extends DataType
      * @param r the reference to which this instance is associated
      * @exception BuildException if this instance already has been configured.
      */
+    @Override
     public void setRefid(Reference r) throws BuildException {
         if (!filterReaders.isEmpty()) {
             throw tooManyAttributes();
@@ -396,7 +397,8 @@ public class FilterChain extends DataType
         filterReaders.addElement(filter);
     }
 
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    @Override
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;
@@ -404,7 +406,7 @@ public class FilterChain extends DataType
         if (isReference()) {
             super.dieOnCircularReference(stk, p);
         } else {
-            for (Iterator i = filterReaders.iterator(); i.hasNext(); ) {
+            for (Iterator<Object> i = filterReaders.iterator(); i.hasNext();) {
                 Object o = i.next();
                 if (o instanceof DataType) {
                     pushAndInvokeCircularReferenceCheck((DataType) o, stk, p);

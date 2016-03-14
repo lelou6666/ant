@@ -26,6 +26,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Hashtable;
 import java.util.StringTokenizer;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.util.FileUtils;
@@ -44,7 +45,7 @@ public class KeySubst extends Task {
     private File source = null;
     private File dest = null;
     private String sep = "*";
-    private Hashtable replacements = new Hashtable();
+    private Hashtable<String, String> replacements = new Hashtable<String, String>();
 
     /**
      * Do the execution.
@@ -146,7 +147,7 @@ public class KeySubst extends Task {
      */
     public static void main(String[] args) {
         try {
-            Hashtable hash = new Hashtable();
+            Hashtable<String, String> hash = new Hashtable<String, String>();
             hash.put("VERSION", "1.0.3");
             hash.put("b", "ffff");
             System.out.println(KeySubst.replace("$f ${VERSION} f ${b} jj $",
@@ -163,7 +164,7 @@ public class KeySubst extends Task {
      * @return the string with the replacements in it.
      * @throws BuildException on error
      */
-    public static String replace(String origString, Hashtable keys)
+    public static String replace(String origString, Hashtable<String, String> keys)
         throws BuildException {
         StringBuffer finalString = new StringBuffer();
         int index = 0;

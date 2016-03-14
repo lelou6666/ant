@@ -19,6 +19,7 @@ package org.apache.tools.ant.util.depend;
 import java.io.File;
 import java.io.IOException;
 import java.util.Enumeration;
+
 import org.apache.tools.ant.types.Path;
 
 /**
@@ -68,7 +69,7 @@ public interface DependencyAnalyzer {
      *
      * @return an enumeration of File instances.
      */
-    Enumeration getFileDependencies();
+    Enumeration<File> getFileDependencies();
 
     /**
      * Get the list of classes upon which root classes depend. This is a
@@ -77,7 +78,7 @@ public interface DependencyAnalyzer {
      * @return an enumeration of Strings, each being the name of a Java
      *      class in dot notation.
      */
-    Enumeration getClassDependencies();
+    Enumeration<String> getClassDependencies();
 
 
     /**

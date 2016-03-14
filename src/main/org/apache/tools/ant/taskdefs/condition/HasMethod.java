@@ -17,14 +17,14 @@
  */
 package org.apache.tools.ant.taskdefs.condition;
 
-import org.apache.tools.ant.types.Path;
-import org.apache.tools.ant.types.Reference;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ProjectComponent;
-
-import java.lang.reflect.Method;
-import java.lang.reflect.Field;
+import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.Reference;
 
 /**
  * test for a method
@@ -113,10 +113,12 @@ public class HasMethod extends ProjectComponent implements Condition {
                 try {
                     return loader.findClass(classname);
                 } catch (SecurityException se) {
-                    // class found but restricted name; this is
-                    // actually the case we're looking for in JDK 1.3+,
-                    // so catch the exception and return
-                    return null;
+                    // class found but restricted name
+                    throw new BuildException("class \"" + classname
+                                             + "\" was found but a"
+                                             + " SecurityException has been"
+                                             + " raised while loading it",
+                                             se);
                 }
             } else if (loader != null) {
                 // How do we ever get here?

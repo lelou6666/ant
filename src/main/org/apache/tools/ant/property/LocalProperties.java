@@ -17,22 +17,22 @@
  */
 package org.apache.tools.ant.property;
 
-import org.apache.tools.ant.PropertyHelper;
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.MagicNames;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.PropertyHelper;
 
 /**
  * Thread local class containing local properties.
  * @since Ant 1.8.0
  */
 public class LocalProperties
-    extends InheritableThreadLocal
+    extends InheritableThreadLocal<LocalPropertyStack>
     implements PropertyHelper.PropertyEvaluator,
     PropertyHelper.PropertySetter {
 
     /**
      * Get a localproperties for the given project.
-     * @param project the project to retieve the localproperties for.
+     * @param project the project to retrieve the localproperties for.
      * @return the localproperties.
      */
     public static synchronized LocalProperties get(Project project) {
@@ -62,7 +62,7 @@ public class LocalProperties
      * Get the initial value.
      * @return a new localproperties stack.
      */
-    protected synchronized Object initialValue() {
+    protected synchronized LocalPropertyStack initialValue() {
         return new LocalPropertyStack();
     }
 

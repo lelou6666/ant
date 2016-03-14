@@ -17,23 +17,25 @@
  */
 package org.apache.tools.ant.listener;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.util.Hashtable;
-import java.util.Vector;
-import java.util.Properties;
 import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Properties;
 import java.util.StringTokenizer;
+import java.util.Vector;
 
 import org.apache.tools.ant.BuildEvent;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DefaultLogger;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.email.EmailAddress;
-import org.apache.tools.ant.taskdefs.email.Message;
+import org.apache.tools.ant.taskdefs.email.Header;
 import org.apache.tools.ant.taskdefs.email.Mailer;
+import org.apache.tools.ant.taskdefs.email.Message;
 import org.apache.tools.ant.util.ClasspathUtils;
 import org.apache.tools.ant.util.DateUtils;
 import org.apache.tools.ant.util.FileUtils;
@@ -46,9 +48,9 @@ import org.apache.tools.mail.MailMessage;
  *  <ul>
  *    <li> MailLogger.mailhost [default: localhost] - Mail server to use</li>
  *    <li> MailLogger.port [default: 25] - Default port for SMTP </li>
- *    <li> Maillogger.user [no default] - user name for SMPT auth
+ *    <li> Maillogger.user [no default] - user name for SMTP auth
  *    (requires JavaMail)</li>
- *    <li> Maillogger.password [no default] - password for SMPT auth
+ *    <li> Maillogger.password [no default] - password for SMTP auth
  *    (requires JavaMail)</li>
  *    <li> Maillogger.ssl [default: false] - on or true if ssl is
  *    needed (requires JavaMail)</li>
@@ -63,6 +65,14 @@ import org.apache.tools.mail.MailMessage;
  *    to send failure messages to</li>
  *    <li> MailLogger.success.to [required if success mail to be sent] - Address
  *    to send success messages to</li>
+ *    <li> MailLogger.failure.cc [no default] - Address
+ *    to send failure messages to carbon copy (cc)</li>
+ *    <li> MailLogger.success.to [no default] - Address
+ *    to send success messages to carbon copy (cc)</li>
+ *    <li> MailLogger.failure.bcc [no default] - Address
+ *    to send failure messages to blind carbon copy (bcc)</li>
+ *    <li> MailLogger.success.bcc [no default] - Address
+ *    to send success messages to blind carbon copy (bcc)</li>
  *    <li> MailLogger.failure.subject [default: "Build Failure"] - Subject of
  *    failed build</li>
  *    <li> MailLogger.success.subject [default: "Build Success"] - Subject of
@@ -100,7 +110,7 @@ public class MailLogger extends DefaultLogger {
         super.buildFinished(event);
 
         Project project = event.getProject();
-        Hashtable properties = project.getProperties();
+        Hashtable<String, Object> properties = project.getProperties();
 
         // overlay specified properties file (if any), which overrides project
         // settings
@@ -118,7 +128,7 @@ public class MailLogger extends DefaultLogger {
             }
         }
 
-        for (Enumeration e = fileProperties.keys(); e.hasMoreElements();) {
+        for (Enumeration<?> e = fileProperties.keys(); e.hasMoreElements();) {
             String key = (String) e.nextElement();
             String value = fileProperties.getProperty(key);
             properties.put(key, project.replaceProperties(value));
@@ -149,6 +159,8 @@ public class MailLogger extends DefaultLogger {
                 .from(getValue(properties, "from", null))
                 .replytoList(getValue(properties, "replyto", ""))
                 .toList(getValue(properties, prefix + ".to", null))
+                .toCcList(getValue(properties, prefix + ".cc", ""))
+                .toBccList(getValue(properties, prefix + ".bcc", ""))
                 .mimeType(getValue(properties, "mimeType", DEFAULT_MIME_TYPE))
                 .charset(getValue(properties, "charset", ""))
                 .body(getValue(properties, prefix + ".body", ""))
@@ -234,6 +246,22 @@ public class MailLogger extends DefaultLogger {
             this.toList = toList;
             return this;
         }
+        private String toCcList;
+        public String toCcList() {
+            return toCcList;
+        }
+        public Values toCcList(String toCcList) {
+            this.toCcList = toCcList;
+            return this;
+        }
+        private String toBccList;
+        public String toBccList() {
+            return toBccList;
+        }
+        public Values toBccList(String toBccList) {
+            this.toBccList = toBccList;
+            return this;
+        }
         private String subject;
         public String subject() {
             return subject;
@@ -298,7 +326,7 @@ public class MailLogger extends DefaultLogger {
      * @exception  Exception  thrown if no default value is specified and the
      *      property is not present in properties.
      */
-    private String getValue(Hashtable properties, String name,
+    private String getValue(Hashtable<String, Object> properties, String name,
                             String defaultValue) throws Exception {
         String propertyName = "MailLogger." + name;
         String value = (String) properties.get(propertyName);
@@ -371,13 +399,13 @@ public class MailLogger extends DefaultLogger {
             return;
         }
         // convert the replyTo string into a vector of emailaddresses
-        Vector replyToList = vectorizeEmailAddresses(values.replytoList());
+        Vector<EmailAddress> replyToList = vectorizeEmailAddresses(values.replytoList());
         mailer.setHost(values.mailhost());
         mailer.setPort(values.port());
         mailer.setUser(values.user());
         mailer.setPassword(values.password());
         mailer.setSSL(values.ssl());
-        mailer.setEnableStartTLS(values.ssl());
+        mailer.setEnableStartTLS(values.starttls());
         Message mymessage =
             new Message(values.body().length() > 0 ? values.body() : message);
         mymessage.setProject(project);
@@ -388,17 +416,19 @@ public class MailLogger extends DefaultLogger {
         mailer.setMessage(mymessage);
         mailer.setFrom(new EmailAddress(values.from()));
         mailer.setReplyToList(replyToList);
-        Vector toList = vectorizeEmailAddresses(values.toList());
+        Vector<EmailAddress> toList = vectorizeEmailAddresses(values.toList());
         mailer.setToList(toList);
-        mailer.setCcList(new Vector());
-        mailer.setBccList(new Vector());
-        mailer.setFiles(new Vector());
+        Vector<EmailAddress> toCcList = vectorizeEmailAddresses(values.toCcList());
+        mailer.setCcList(toCcList);
+        Vector<EmailAddress> toBccList = vectorizeEmailAddresses(values.toBccList());
+        mailer.setBccList(toBccList);
+        mailer.setFiles(new Vector<File>());
         mailer.setSubject(values.subject());
-        mailer.setHeaders(new Vector());
+        mailer.setHeaders(new Vector<Header>());
         mailer.send();
     }
-    private Vector vectorizeEmailAddresses(String listString) {
-        Vector emailList = new Vector();
+    private Vector<EmailAddress> vectorizeEmailAddresses(String listString) {
+        Vector<EmailAddress> emailList = new Vector<EmailAddress>();
         StringTokenizer tokens = new StringTokenizer(listString, ",");
         while (tokens.hasMoreTokens()) {
             emailList.addElement(new EmailAddress(tokens.nextToken()));

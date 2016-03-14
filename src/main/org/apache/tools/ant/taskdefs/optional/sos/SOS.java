@@ -18,6 +18,7 @@
 package org.apache.tools.ant.taskdefs.optional.sos;
 
 import java.io.File;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
@@ -219,7 +220,7 @@ public abstract class SOS extends Task implements SOSCmd {
     }
 
     /**
-     * Get the executable to run. Add the path if it was specifed in the build file
+     * Get the executable to run. Add the path if it was specified in the build file
      *
      * @return the executable to run.
      */
@@ -362,7 +363,7 @@ public abstract class SOS extends Task implements SOSCmd {
             // make sure localDir exists, create it if it doesn't
             File dir = getProject().resolveFile(localPath);
             if (!dir.exists()) {
-                boolean done = dir.mkdirs();
+                boolean done = dir.mkdirs() || dir.isDirectory();
                 if (!done) {
                     String msg = "Directory " + localPath + " creation was not "
                         + "successful for an unknown reason";

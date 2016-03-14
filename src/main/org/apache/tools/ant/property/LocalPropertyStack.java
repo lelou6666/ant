@@ -17,11 +17,9 @@
  */
 package org.apache.tools.ant.property;
 
-
 import java.util.LinkedList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.tools.ant.PropertyHelper;
 
@@ -31,7 +29,8 @@ import org.apache.tools.ant.PropertyHelper;
  * @since Ant 1.8.0
  */
 public class LocalPropertyStack {
-    private LinkedList stack = new LinkedList();
+    private final LinkedList<Map<String, Object>> stack = new LinkedList<Map<String, Object>>();
+    private final Object LOCK = new Object();
 
     // --------------------------------------------------
     //
@@ -41,11 +40,14 @@ public class LocalPropertyStack {
 
     /**
      * Add a local property.
-     * @param property the name of the local proeprty.
+     * @param property the name of the local property.
      */
     public void addLocal(String property) {
-        if (!stack.isEmpty()) {
-            ((Map) stack.getFirst()).put(property, NullReturn.NULL);
+        synchronized (LOCK) {
+            Map<String, Object> map = stack.peek();
+            if (map != null) {
+                map.put(property, NullReturn.NULL);
+            }
         }
     }
 
@@ -53,14 +55,18 @@ public class LocalPropertyStack {
      * Enter the local scope.
      */
     public void enterScope() {
-        stack.addFirst(new HashMap());
+        synchronized (LOCK) {
+            stack.addFirst(new ConcurrentHashMap<String, Object>());
+        }
     }
 
     /**
      * Exit the local scope.
      */
     public void exitScope() {
-        ((HashMap) stack.removeFirst()).clear();
+        synchronized (LOCK) {
+            stack.removeFirst().clear();
+        }
     }
 
     // --------------------------------------------------
@@ -74,9 +80,11 @@ public class LocalPropertyStack {
      * @return a copy.
      */
     public LocalPropertyStack copy() {
-        LocalPropertyStack ret = new LocalPropertyStack();
-        ret.stack.addAll(stack);
-        return ret;
+        synchronized (LOCK) {
+            LocalPropertyStack ret = new LocalPropertyStack();
+            ret.stack.addAll(stack);
+            return ret;
+        }
     }
 
     // --------------------------------------------------
@@ -92,11 +100,12 @@ public class LocalPropertyStack {
      * @return Object value.
      */
     public Object evaluate(String property, PropertyHelper helper) {
-        for (Iterator i = stack.iterator(); i.hasNext();) {
-            Map map = (Map) i.next();
-            Object ret = map.get(property);
-            if (ret != null) {
-                return ret;
+        synchronized (LOCK) {
+            for (Map<String, Object> map : stack) {
+                Object ret = map.get(property);
+                if (ret != null) {
+                    return ret;
+                }
             }
         }
         return null;
@@ -111,7 +120,7 @@ public class LocalPropertyStack {
      */
     public boolean setNew(
         String property, Object value, PropertyHelper propertyHelper) {
-        Map map = getMapForProperty(property);
+        Map<String, Object> map = getMapForProperty(property);
         if (map == null) {
             return false;
         }
@@ -130,7 +139,7 @@ public class LocalPropertyStack {
      * @return true if this entity 'owns' the property.
      */
     public boolean set(String property, Object value, PropertyHelper propertyHelper) {
-        Map map = getMapForProperty(property);
+        Map<String, Object> map = getMapForProperty(property);
         if (map == null) {
             return false;
         }
@@ -138,11 +147,12 @@ public class LocalPropertyStack {
         return true;
     }
 
-    private Map getMapForProperty(String property) {
-        for (Iterator i = stack.iterator(); i.hasNext();) {
-            Map map = (Map) i.next();
-            if (map.get(property) != null) {
-                return map;
+    private Map<String, Object> getMapForProperty(String property) {
+        synchronized (LOCK) {
+            for (Map<String, Object> map : stack) {
+                if (map.get(property) != null) {
+                    return map;
+                }
             }
         }
         return null;

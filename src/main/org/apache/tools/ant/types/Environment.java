@@ -19,6 +19,7 @@
 package org.apache.tools.ant.types;
 
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 
 /**
@@ -29,10 +30,10 @@ public class Environment {
     // CheckStyle:VisibilityModifier OFF - bc
 
     /**
-     * a vector of type Enviromment.Variable
+     * a vector of type Environment.Variable
      * @see Variable
      */
-    protected Vector variables;
+    protected Vector<Variable> variables;
 
     // CheckStyle:VisibilityModifier ON
 
@@ -106,7 +107,7 @@ public class Environment {
         }
 
         /**
-         * get the assigment string
+         * get the assignment string
          * This is not ready for insertion into a property file without following
          * the escaping rules of the properties class.
          * @return a string of the form key=value.
@@ -135,7 +136,7 @@ public class Environment {
      * constructor
      */
     public Environment() {
-        variables = new Vector();
+        variables = new Vector<Variable>();
     }
 
     /**
@@ -170,7 +171,7 @@ public class Environment {
      * Variable
      * @since Ant 1.7
      */
-    public Vector getVariablesVector() {
+    public Vector<Variable> getVariablesVector() {
         return variables;
     }
 }

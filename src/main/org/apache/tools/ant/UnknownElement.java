@@ -18,12 +18,13 @@
 
 package org.apache.tools.ant;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.io.IOException;
+
 import org.apache.tools.ant.taskdefs.PreSetDef;
 
 /**
@@ -59,7 +60,7 @@ public class UnknownElement extends Task {
     /**
      * List of child elements (UnknownElements).
      */
-    private List/*<UnknownElement>*/ children = null;
+    private List<UnknownElement> children = null;
 
     /** Specifies if a predefined definition has been done */
     private boolean presetDefed = false;
@@ -77,7 +78,7 @@ public class UnknownElement extends Task {
     /**
      * @return the list of nested UnknownElements for this UnknownElement.
      */
-    public List getChildren() {
+    public List<UnknownElement> getChildren() {
         return children;
     }
 
@@ -170,6 +171,9 @@ public class UnknownElement extends Task {
      *
      */
     public void configure(Object realObject) {
+        if (realObject == null) {
+            return;
+        }
         realThing = realObject;
 
         getWrapper().setProxy(realThing);
@@ -269,9 +273,9 @@ public class UnknownElement extends Task {
      */
     protected void handleErrorFlush(String output) {
         if (realThing instanceof Task) {
-            ((Task) realThing).handleErrorOutput(output);
+            ((Task) realThing).handleErrorFlush(output);
         } else {
-            super.handleErrorOutput(output);
+            super.handleErrorFlush(output);
         }
     }
 
@@ -281,10 +285,8 @@ public class UnknownElement extends Task {
      */
     public void execute() {
         if (realThing == null) {
-            // plain impossible to get here, maybeConfigure should
-            // have thrown an exception.
-            throw new BuildException("Could not create task of type: "
-                                     + elementName, getLocation());
+            // Got here if the runtimeconfigurable is not enabled.
+            return;
         }
         try {
             if (realThing instanceof Task) {
@@ -309,7 +311,7 @@ public class UnknownElement extends Task {
      */
     public void addChild(UnknownElement child) {
         if (children == null) {
-            children = new ArrayList();
+            children = new ArrayList<UnknownElement>();
         }
         children.add(child);
     }
@@ -336,16 +338,24 @@ public class UnknownElement extends Task {
         }
 
         String parentUri = getNamespace();
-        Class parentClass = parent.getClass();
+        Class<?> parentClass = parent.getClass();
         IntrospectionHelper ih = IntrospectionHelper.getHelper(getProject(), parentClass);
 
 
         if (children != null) {
-            Iterator it = children.iterator();
+            Iterator<UnknownElement> it = children.iterator();
             for (int i = 0; it.hasNext(); i++) {
                 RuntimeConfigurable childWrapper = parentWrapper.getChild(i);
-                UnknownElement child = (UnknownElement) it.next();
+                UnknownElement child = it.next();
                 try {
+                    if (!childWrapper.isEnabled(child)) {
+                        if (ih.supportsNestedElement(
+                                parentUri, ProjectHelper.genComponentName(
+                                    child.getNamespace(), child.getTag()))) {
+                            continue;
+                        }
+                        // fall tru and fail in handlechild (unsupported element)
+                    }
                     if (!handleChild(
                             parentUri, ih, parent, child, childWrapper)) {
                         if (!(parent instanceof TaskContainer)) {
@@ -390,7 +400,7 @@ public class UnknownElement extends Task {
         // Do the runtime
         getWrapper().applyPreSet(u.getWrapper());
         if (u.children != null) {
-            List newChildren = new ArrayList();
+            List<UnknownElement> newChildren = new ArrayList<UnknownElement>();
             newChildren.addAll(u.children);
             if (children != null) {
                 newChildren.addAll(children);
@@ -411,6 +421,9 @@ public class UnknownElement extends Task {
      * @return the task or data type represented by the given unknown element.
      */
     protected Object makeObject(UnknownElement ue, RuntimeConfigurable w) {
+        if (!w.isEnabled(ue)) {
+            return null;
+        }
         ComponentHelper helper = ComponentHelper.getComponentHelper(
             getProject());
         String name = ue.getComponentName();
@@ -622,16 +635,17 @@ public class UnknownElement extends Task {
             return false;
         }
         // Are the sub elements the same ?
-        if (children == null || children.size() == 0) {
+        final int childrenSize = children == null ? 0 : children.size();
+        if (childrenSize == 0) {
             return other.children == null || other.children.size() == 0;
         }
         if (other.children == null) {
             return false;
         }
-        if (children.size() != other.children.size()) {
+        if (childrenSize != other.children.size()) {
             return false;
         }
-        for (int i = 0; i < children.size(); ++i) {
+        for (int i = 0; i < childrenSize; ++i) {
             UnknownElement child = (UnknownElement) children.get(i);
             if (!child.similar(other.children.get(i))) {
                 return false;
@@ -667,16 +681,14 @@ public class UnknownElement extends Task {
         RuntimeConfigurable copyRC = new RuntimeConfigurable(
             ret, getTaskName());
         copyRC.setPolyType(getWrapper().getPolyType());
-        Map m = getWrapper().getAttributeMap();
-        for (Iterator i = m.entrySet().iterator(); i.hasNext();) {
-            Map.Entry entry = (Map.Entry) i.next();
-            copyRC.setAttribute(
-                (String) entry.getKey(), (String) entry.getValue());
+        Map<String, Object> m = getWrapper().getAttributeMap();
+        for (Map.Entry<String, Object> entry : m.entrySet()) {
+            copyRC.setAttribute(entry.getKey(), (String) entry.getValue());
         }
         copyRC.addText(getWrapper().getText().toString());
 
-        for (Enumeration e = getWrapper().getChildren(); e.hasMoreElements();) {
-            RuntimeConfigurable r = (RuntimeConfigurable) e.nextElement();
+        for (Enumeration<RuntimeConfigurable> e = getWrapper().getChildren(); e.hasMoreElements();) {
+            RuntimeConfigurable r = e.nextElement();
             UnknownElement ueChild = (UnknownElement) r.getProxy();
             UnknownElement copyChild = ueChild.copy(newProject);
             copyRC.addChild(copyChild.getWrapper());

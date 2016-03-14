@@ -29,11 +29,10 @@ import java.io.PrintStream;
  * <p>
  * In code-language it means that it is not necessary to do:
  * <pre>
- * if (out != System.out && out!= System.err) {
+ * if (out != System.out &amp;&amp; out != System.err) {
  *   out.close();
  * }
  * </pre>
- * </p>
  *
  */
 public class KeepAliveOutputStream extends FilterOutputStream {
@@ -41,7 +40,7 @@ public class KeepAliveOutputStream extends FilterOutputStream {
     /**
      * Constructor of KeepAliveOutputStream.
      *
-     * @param out an OutputStream value, it shoudl be standard output.
+     * @param out an OutputStream value, it should be standard output.
      */
     public KeepAliveOutputStream(OutputStream out) {
         super(out);
@@ -49,7 +48,7 @@ public class KeepAliveOutputStream extends FilterOutputStream {
 
     /**
      * This method does nothing.
-     * @throws IOException as we are overridding FilterOutputStream.
+     * @throws IOException as we are overriding FilterOutputStream.
      */
     public void close() throws IOException {
         // do not close the stream

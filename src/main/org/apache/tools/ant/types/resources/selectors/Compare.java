@@ -18,18 +18,17 @@
 package org.apache.tools.ant.types.resources.selectors;
 
 import java.util.Stack;
-import java.util.Iterator;
 
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Comparison;
 import org.apache.tools.ant.types.DataType;
-import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.Quantifier;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.resources.Union;
-import org.apache.tools.ant.types.resources.comparators.ResourceComparator;
 import org.apache.tools.ant.types.resources.comparators.DelegatedResourceComparator;
+import org.apache.tools.ant.types.resources.comparators.ResourceComparator;
 
 /**
  * ResourceSelector that compares against "control" Resource(s)
@@ -111,8 +110,8 @@ public class Compare extends DataType implements ResourceSelector {
         }
         dieOnCircularReference();
         int t = 0, f = 0;
-        for (Iterator it = control.iterator(); it.hasNext();) {
-            if (when.evaluate(comp.compare(r, (Resource) it.next()))) {
+        for (Resource res : control) {
+            if (when.evaluate(comp.compare(r, res))) {
                 t++;
             } else {
                 f++;
@@ -128,7 +127,7 @@ public class Compare extends DataType implements ResourceSelector {
      * @param p   the project to use to dereference the references.
      * @throws BuildException on error.
      */
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;

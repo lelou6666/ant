@@ -20,10 +20,10 @@
   <import file="../../antunit-base.xml" />
 
   <property name="dirname" value="work" />
-  <property name="dir" location="${dirname}" />
-  <property name="zip" location="${dirname}.zip" />
-  <property name="jar" location="${dirname}.jar" />
-  <property name="file" location="${dirname}/file.txt" />
+  <property name="dir" location="${output}/${dirname}" />
+  <property name="zip" location="${output}/${dirname}.zip" />
+  <property name="jar" location="${antunit.tmpdir}/${dirname}.jar" />
+  <property name="file" location="${output}/${dirname}/file.txt" />
     
   <condition property="offline">
     <not>
@@ -170,7 +170,9 @@
           </path>
           <pathelement id="pe" location="${dir}" /> <!-- 1 -->
           <filelist id="fl" dir="${bar}" files="1,2,3,a,b,c" /> <!-- 6 -->
-          <files id="f" includes="${bar}/" /> <!-- 13; 3 overlap fl -->
+          <files id="f"> <!-- 13; 3 overlap fl -->
+            <include name="${bar}/"/>
+          </files>
         </path>
       </resourcecount>
     </au:assertTrue>
@@ -212,10 +214,16 @@
     <au:assertTrue>
       <resourcecount count="4">
         <union>
-          <files includes="${foo.a}/w,${foo.a}/x" /> <!-- 1 -->
+          <files> <!-- 1 -->
+            <include name="${foo.a}/w"/>
+            <include name="${foo.a}/x"/>
+          </files>
           <fileset dir="${foo.a}" includes="x,y" /> <!-- 2; net 1 -->
           <filelist dir="${foo.a}" files="v" /> <!-- 1 -->
-          <files includes="${foo.a}/y,${foo.a}/z" /> <!-- 2; net 1 -->
+          <files>  <!-- 2; net 1 -->
+            <include name="${foo.a}/y"/>
+            <include name="${foo.a}/z"/>
+          </files>
         </union>
       </resourcecount>
     </au:assertTrue>
@@ -265,7 +273,7 @@
   <target name="testhttpurl1" unless="offline">
     <au:assertTrue>
       <length when="greater" length="0">
-        <url url="http://www.w3.org/MarkUp" />
+        <url url="http://www.w3.org/MarkUp/" />
       </length>
     </au:assertTrue>
   </target>
@@ -390,6 +398,63 @@
         </first>
       </resourcecount>
     </au:assertTrue>
+  </target>
+
+  <target name="testJavaConstant">
+    <property name="test.tmp.dir" value="${antunit.tmpdir}/testJavaConstant"/>
+    <mkdir dir="${test.tmp.dir}"/>
+    <echo file="${test.tmp.dir}/SomeClass.java">
+      public class SomeClass {
+          public  static final String CONSTANT   = "constant";
+          public         final String NOT_STATIC = "not-static";
+          private static final String PRIVATE    = "private";
+      }
+    </echo>
+    <javac srcdir="${test.tmp.dir}" destdir="${test.tmp.dir}"/>
+    <path id="tmp.cp">
+      <pathelement location="${test.tmp.dir}"/>
+    </path>
+
+    <loadresource property="actual">
+      <javaconstant name="org.apache.tools.ant.Main.DEFAULT_BUILD_FILENAME"/>
+    </loadresource>
+    <au:assertEquals message="could not read java constant" expected="build.xml" actual="${actual}" />
+
+    <!-- 
+    We can't test for special error messages using built-in tasks 
+    because they catch these messages 
+    -->
+    <au:expectfailure>
+      <loadresource property="p">
+        <javaconstant/>
+      </loadresource>
+    </au:expectfailure>
+    <au:expectfailure>
+      <loadresource property="p">
+        <javaconstant name="org.apache.tools.ant.MissingClass"/>
+      </loadresource>
+    </au:expectfailure>
+    <au:expectfailure>
+      <loadresource property="p">
+        <javaconstant name="SomeClass.CONSTANT2" classpathref="tmp.cp"/>
+      </loadresource>
+     </au:expectfailure>
+    <au:expectfailure>
+      <loadresource property="p">
+        <javaconstant name="SomeClass.PRIVATE">
+          <classpath>
+            <pathelement location="${test.tmp.dir}"/>
+          </classpath>
+        </javaconstant>
+      </loadresource>
+     </au:expectfailure>
+    <au:expectfailure>
+      <loadresource property="p">
+        <javaconstant name="SomeClass.NOT_STATIC"/>
+      </loadresource>
+     </au:expectfailure>
+    
+    <delete dir="${test.tmp.dir}"/>
   </target>
 
 </project>

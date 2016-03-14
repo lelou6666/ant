@@ -19,6 +19,7 @@
 package org.apache.tools.ant.types;
 
 import java.util.Iterator;
+
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.types.resources.FileResourceIterator;
 
@@ -63,7 +64,7 @@ public class DirSet extends AbstractFileSet implements ResourceCollection {
      * @return an Iterator of Resources.
      * @since Ant 1.7
      */
-    public Iterator iterator() {
+    public Iterator<Resource> iterator() {
         if (isReference()) {
             return ((DirSet) getRef(getProject())).iterator();
         }

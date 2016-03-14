@@ -27,7 +27,7 @@ import org.apache.tools.ant.util.FileNameMapper;
  * The interface that all rmic adapters must adhere to.
  *
  * <p>A rmic adapter is an adapter that interprets the rmic's
- * parameters in preperation to be passed off to the compiler this
+ * parameters in preparation to be passed off to the compiler this
  * adapter represents.  As all the necessary values are stored in the
  * Rmic task itself, the only thing all adapters need is the rmic
  * task, the execute command and a parameterless constructor (for
@@ -61,7 +61,7 @@ public interface RmicAdapter {
 
     /**
      * The CLASSPATH this rmic process will use.
-     * @return the classpaht this rmic process will use
+     * @return the classpath this rmic process will use
      */
     Path getClasspath();
 }

@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Stack;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.ArchiveFileSet;
@@ -77,8 +78,8 @@ public class Archives extends DataType
         }
         dieOnCircularReference();
         int total = 0;
-        for (Iterator i = grabArchives(); i.hasNext(); ) {
-            total += ((ResourceCollection) i.next()).size();
+        for (final Iterator<ArchiveFileSet> i = grabArchives(); i.hasNext();) {
+            total += i.next().size();
         }
         return total;
     }
@@ -86,15 +87,15 @@ public class Archives extends DataType
     /**
      * Merges the nested collections.
      */
-    public Iterator iterator() {
+    public Iterator<Resource> iterator() {
         if (isReference()) {
             return ((Archives) getCheckedRef()).iterator();
         }
         dieOnCircularReference();
-        List l = new LinkedList();
-        for (Iterator i = grabArchives(); i.hasNext(); ) {
+        final List<Resource> l = new LinkedList<Resource>();
+        for (final Iterator<ArchiveFileSet> i = grabArchives(); i.hasNext();) {
             l.addAll(CollectionUtils
-                     .asCollection(((ResourceCollection) i.next()).iterator()));
+                     .asCollection(i.next().iterator()));
         }
         return l.iterator();
     }
@@ -114,7 +115,8 @@ public class Archives extends DataType
      * Overrides the base version.
      * @param r the Reference to set.
      */
-    public void setRefid(Reference r) {
+    @Override
+    public void setRefid(final Reference r) {
         if (zips.getResourceCollections().size() > 0
             || tars.getResourceCollections().size() > 0) {
             throw tooManyAttributes();
@@ -127,13 +129,14 @@ public class Archives extends DataType
      * well.
      * @return a cloned instance.
      */
+    @Override
     public Object clone() {
         try {
-            Archives a = (Archives) super.clone();
+            final Archives a = (Archives) super.clone();
             a.zips = (Union) zips.clone();
             a.tars = (Union) tars.clone();
             return a;
-        } catch (CloneNotSupportedException e) {
+        } catch (final CloneNotSupportedException e) {
             throw new BuildException(e);
         }
     }
@@ -144,15 +147,13 @@ public class Archives extends DataType
      * Turns all nested resources into corresponding ArchiveFileSets
      * and returns an iterator over the collected archives.
      */
-    protected Iterator/*<ArchiveFileset>*/ grabArchives() {
-        List l = new LinkedList();
-        for (Iterator iter = zips.iterator(); iter.hasNext(); ) {
-            l.add(configureArchive(new ZipFileSet(),
-                                   (Resource) iter.next()));
+    protected Iterator<ArchiveFileSet> grabArchives() {
+        final List<ArchiveFileSet> l = new LinkedList<ArchiveFileSet>();
+        for (final Resource r : zips) {
+            l.add(configureArchive(new ZipFileSet(), r));
         }
-        for (Iterator iter = tars.iterator(); iter.hasNext(); ) {
-            l.add(configureArchive(new TarFileSet(),
-                                   (Resource) iter.next()));
+        for (final Resource r : tars) {
+            l.add(configureArchive(new TarFileSet(), r));
         }
         return l.iterator();
     }
@@ -161,8 +162,8 @@ public class Archives extends DataType
      * Configures the archivefileset based on this type's settings,
      * set the source.
      */
-    protected ArchiveFileSet configureArchive(ArchiveFileSet afs,
-                                              Resource src) {
+    protected ArchiveFileSet configureArchive(final ArchiveFileSet afs,
+                                              final Resource src) {
         afs.setProject(getProject());
         afs.setSrcResource(src);
         return afs;
@@ -175,7 +176,8 @@ public class Archives extends DataType
      * @param p   the project to use to dereference the references.
      * @throws BuildException on error.
      */
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    @Override
+    protected synchronized void dieOnCircularReference(final Stack<Object> stk, final Project p)
         throws BuildException {
         if (isChecked()) {
             return;

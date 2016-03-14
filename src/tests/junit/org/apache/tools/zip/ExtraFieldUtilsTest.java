@@ -18,29 +18,39 @@
 
 package org.apache.tools.zip;
 
-import java.util.Arrays;
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * JUnit 3 testcases for org.apache.tools.zip.ExtraFieldUtils.
  *
  */
-public class ExtraFieldUtilsTest extends TestCase implements UnixStat {
-    public ExtraFieldUtilsTest(String name) {
-        super(name);
-    }
+public class ExtraFieldUtilsTest implements UnixStat {
+
+    /**
+     * Header-ID of a ZipExtraField not supported by Ant.
+     *
+     * <p>Used to be ZipShort(1) but this is the ID of the Zip64 extra
+     * field.</p>
+     */
+    static final ZipShort UNRECOGNIZED_HEADER = new ZipShort(0x5555);
 
     private AsiExtraField a;
     private UnrecognizedExtraField dummy;
     private byte[] data;
     private byte[] aLocal;
 
+    @Before
     public void setUp() {
         a = new AsiExtraField();
         a.setMode(0755);
         a.setDirectory(true);
         dummy = new UnrecognizedExtraField();
-        dummy.setHeaderId(new ZipShort(1));
+        dummy.setHeaderId(UNRECOGNIZED_HEADER);
         dummy.setLocalFileDataData(new byte[] {0});
         dummy.setCentralDirectoryData(new byte[] {0});
 
@@ -62,6 +72,7 @@ public class ExtraFieldUtilsTest extends TestCase implements UnixStat {
     /**
      * test parser.
      */
+    @Test
     public void testParse() throws Exception {
         ZipExtraField[] ze = ExtraFieldUtils.parse(data);
         assertEquals("number of fields", 2, ze.length);
@@ -85,6 +96,7 @@ public class ExtraFieldUtilsTest extends TestCase implements UnixStat {
         }
     }
 
+    @Test
     public void testParseWithRead() throws Exception {
         ZipExtraField[] ze =
             ExtraFieldUtils.parse(data, true,
@@ -108,7 +120,6 @@ public class ExtraFieldUtilsTest extends TestCase implements UnixStat {
         assertTrue("type field 2", ze[1] instanceof UnparseableExtraFieldData);
         assertEquals("data length field 2", 4,
                      ze[1].getLocalFileDataLength().getValue());
-        byte[] expectedData = new byte[4];
         for (int i = 0; i < 4; i++) {
             assertEquals("byte number " + i,
                          data2[data.length - 5 + i],
@@ -116,6 +127,7 @@ public class ExtraFieldUtilsTest extends TestCase implements UnixStat {
         }
     }
 
+    @Test
     public void testParseWithSkip() throws Exception {
         ZipExtraField[] ze =
             ExtraFieldUtils.parse(data, true,
@@ -141,6 +153,7 @@ public class ExtraFieldUtilsTest extends TestCase implements UnixStat {
     /**
      * Test merge methods
      */
+    @Test
     public void testMerge() {
         byte[] local =
             ExtraFieldUtils.mergeLocalFileDataData(new ZipExtraField[] {a, dummy});
@@ -167,9 +180,11 @@ public class ExtraFieldUtilsTest extends TestCase implements UnixStat {
 
     }
 
+    @Test
     public void testMergeWithUnparseableData() throws Exception {
         ZipExtraField d = new UnparseableExtraFieldData();
-        d.parseFromLocalFileData(new byte[] {1, 0, 1, 0}, 0, 4);
+        byte[] b = UNRECOGNIZED_HEADER.getBytes();
+        d.parseFromLocalFileData(new byte[] {b[0], b[1], 1, 0}, 0, 4);
         byte[] local =
             ExtraFieldUtils.mergeLocalFileDataData(new ZipExtraField[] {a, d});
         assertEquals("local length", data.length - 1, local.length);

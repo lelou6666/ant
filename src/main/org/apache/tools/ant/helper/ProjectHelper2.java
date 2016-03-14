@@ -17,6 +17,19 @@
  */
 package org.apache.tools.ant.helper;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.Map;
+import java.util.Stack;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ExtensionPoint;
 import org.apache.tools.ant.Location;
@@ -41,24 +54,12 @@ import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.URL;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Stack;
-
 /**
  * Sax2 based project reader
  *
  */
 public class ProjectHelper2 extends ProjectHelper {
+
     /** Reference holding the (ordered) target Vector */
     public static final String REFID_TARGETS = "ant.targets";
 
@@ -92,18 +93,18 @@ public class ProjectHelper2 extends ProjectHelper {
     }
 
     /**
-     * Parse the given URL as an antlib descriptor an return the
+     * Parse the given URL as an antlib descriptor and return the
      * content as something that can be turned into an Antlib task.
      *
      * <p>simply delegates to {@link #parseUnknownElement
      * parseUnknownElement} if the resource provides an URL and throws
-     * an exceptipn otherwise.</p>
+     * an exception otherwise.</p>
      *
      * @since Ant 1.8.0
      */
     public UnknownElement parseAntlibDescriptor(Project containingProject,
                                                 Resource resource) {
-        URLProvider up = (URLProvider) resource.as(URLProvider.class);
+        URLProvider up = resource.as(URLProvider.class);
         if (up == null) {
             throw new BuildException("Unsupported resource type: " + resource);
         }
@@ -156,13 +157,13 @@ public class ProjectHelper2 extends ProjectHelper {
             context.setIgnoreProjectTag(true);
             Target currentTarget = context.getCurrentTarget();
             Target currentImplicit = context.getImplicitTarget();
-            Map    currentTargets = context.getCurrentTargets();
+            Map<String, Target>    currentTargets = context.getCurrentTargets();
             try {
                 Target newCurrent = new Target();
                 newCurrent.setProject(project);
                 newCurrent.setName("");
                 context.setCurrentTarget(newCurrent);
-                context.setCurrentTargets(new HashMap());
+                context.setCurrentTargets(new HashMap<String, Target>());
                 context.setImplicitTarget(newCurrent);
                 parse(project, source, new RootHandler(context, mainHandler));
                 newCurrent.execute();
@@ -173,32 +174,13 @@ public class ProjectHelper2 extends ProjectHelper {
             }
         } else {
             // top level file
-            context.setCurrentTargets(new HashMap());
+            context.setCurrentTargets(new HashMap<String, Target>());
             parse(project, source, new RootHandler(context, mainHandler));
             // Execute the top-level target
             context.getImplicitTarget().execute();
 
             // resolve extensionOf attributes
-            for (Iterator i = getExtensionStack().iterator(); i.hasNext(); ) {
-                String[] extensionInfo = (String[]) i.next();
-                String tgName = extensionInfo[0];
-                String name = extensionInfo[1];
-                Hashtable projectTargets = project.getTargets();
-                if (!projectTargets.containsKey(tgName)) {
-                    throw new BuildException("can't add target "
-                                             + name + " to extension-point "
-                                             + tgName
-                                             + " because the extension-point"
-                                             + " is unknown.");
-                }
-                Target t = (Target) projectTargets.get(tgName);
-                if (!(t instanceof ExtensionPoint)) {
-                    throw new BuildException("referenced target "
-                                             + tgName
-                                             + " is not an extension-point");
-                }
-                t.addDependency(name);
-            }
+            resolveExtensionOfAttributes(project);
         }
     }
 
@@ -225,12 +207,12 @@ public class ProjectHelper2 extends ProjectHelper {
             url = (URL) source;
         } else if (source instanceof Resource) {
             FileProvider fp =
-                (FileProvider) ((Resource) source).as(FileProvider.class);
+                ((Resource) source).as(FileProvider.class);
             if (fp != null) {
                 buildFile = fp.getFile();
             } else {
                 URLProvider up =
-                    (URLProvider) ((Resource) source).as(URLProvider.class);
+                    ((Resource) source).as(URLProvider.class);
                 if (up != null) {
                     url = up.getURL();
                 }
@@ -250,7 +232,7 @@ public class ProjectHelper2 extends ProjectHelper {
             buildFileName = url.toString();
         } else {
             throw new BuildException("Source " + source.getClass().getName()
-                    + " not supported by this plugin");
+                                     + " not supported by this plugin");
         }
         InputStream inputStream = null;
         InputSource inputSource = null;
@@ -270,13 +252,15 @@ public class ProjectHelper2 extends ProjectHelper {
                 uri = url.toString();
                 int pling = -1;
                 if (uri.startsWith("jar:file")
-                    && (pling = uri.indexOf("!")) > -1) {
+                    && (pling = uri.indexOf("!/")) > -1) {
                     zf = new ZipFile(org.apache.tools.ant.launch.Locator
                                      .fromJarURI(uri), "UTF-8");
                     inputStream =
                         zf.getInputStream(zf.getEntry(uri.substring(pling + 1)));
                 } else {
-                    inputStream = url.openStream();
+                    URLConnection conn = url.openConnection();
+                    conn.setUseCaches(false);
+                    inputStream = conn.getInputStream();
                 }
             }
 
@@ -297,7 +281,7 @@ public class ProjectHelper2 extends ProjectHelper {
             parser.parse(inputSource);
         } catch (SAXParseException exc) {
             Location location = new Location(exc.getSystemId(), exc.getLineNumber(), exc
-                    .getColumnNumber());
+                                             .getColumnNumber());
 
             Throwable t = exc.getException();
             if (t instanceof BuildException) {
@@ -317,11 +301,11 @@ public class ProjectHelper2 extends ProjectHelper {
         } catch (FileNotFoundException exc) {
             throw new BuildException(exc);
         } catch (UnsupportedEncodingException exc) {
-              throw new BuildException("Encoding of project file " + buildFileName + " is invalid.",
-                    exc);
+            throw new BuildException("Encoding of project file " + buildFileName + " is invalid.",
+                                     exc);
         } catch (IOException exc) {
             throw new BuildException("Error reading project file " + buildFileName + ": "
-                    + exc.getMessage(), exc);
+                                     + exc.getMessage(), exc);
         } finally {
             FileUtils.close(inputStream);
             ZipFile.closeQuietly(zf);
@@ -440,7 +424,7 @@ public class ProjectHelper2 extends ProjectHelper {
         public AntHandler onStartChild(String uri, String tag, String qname, Attributes attrs,
                                        AntXMLContext context) throws SAXParseException {
             throw new SAXParseException("Unexpected element \"" + qname + " \"", context
-                    .getLocator());
+                                        .getLocator());
         }
 
         /**
@@ -453,7 +437,7 @@ public class ProjectHelper2 extends ProjectHelper {
          * @exception SAXParseException if an error occurs
          */
         public void onEndChild(String uri, String tag, String qname, AntXMLContext context)
-                throws SAXParseException {
+            throws SAXParseException {
         }
 
         /**
@@ -480,7 +464,7 @@ public class ProjectHelper2 extends ProjectHelper {
          *                              case of error in an overridden version
          */
         public void characters(char[] buf, int start, int count, AntXMLContext context)
-                throws SAXParseException {
+            throws SAXParseException {
             String s = new String(buf, start, count).trim();
 
             if (s.length() > 0) {
@@ -503,7 +487,7 @@ public class ProjectHelper2 extends ProjectHelper {
      * with the implicit execution stack )
      */
     public static class RootHandler extends DefaultHandler {
-        private Stack antHandlers = new Stack();
+        private Stack<AntHandler> antHandlers = new Stack<AntHandler>();
         private AntHandler currentHandler = null;
         private AntXMLContext context;
 
@@ -548,9 +532,9 @@ public class ProjectHelper2 extends ProjectHelper {
                 if (!file.isAbsolute()) {
                     file = FILE_UTILS.resolveFile(context.getBuildFileParent(), path);
                     context.getProject().log(
-                            "Warning: '" + systemId + "' in " + context.getBuildFile()
-                                    + " should be expressed simply as '" + path.replace('\\', '/')
-                                    + "' for compliance with other XML tools", Project.MSG_WARN);
+                                             "Warning: '" + systemId + "' in " + context.getBuildFile()
+                                             + " should be expressed simply as '" + path.replace('\\', '/')
+                                             + "' for compliance with other XML tools", Project.MSG_WARN);
                 }
                 context.getProject().log("file=" + file, Project.MSG_DEBUG);
                 try {
@@ -559,7 +543,7 @@ public class ProjectHelper2 extends ProjectHelper {
                     return inputSource;
                 } catch (FileNotFoundException fne) {
                     context.getProject().log(file.getAbsolutePath() + " could not be found",
-                            Project.MSG_WARN);
+                                             Project.MSG_WARN);
                 }
 
             }
@@ -583,7 +567,7 @@ public class ProjectHelper2 extends ProjectHelper {
          *                              <code>"project"</code>
          */
         public void startElement(String uri, String tag, String qname, Attributes attrs)
-                throws SAXParseException {
+            throws SAXParseException {
             AntHandler next = currentHandler.onStartChild(uri, tag, qname, attrs, context);
             antHandlers.push(currentHandler);
             currentHandler = next;
@@ -643,7 +627,7 @@ public class ProjectHelper2 extends ProjectHelper {
         }
 
         /**
-         * End a namepace prefix to uri mapping
+         * End a namespace prefix to uri mapping
          *
          * @param prefix the prefix that is not mapped anymore
          */
@@ -678,10 +662,10 @@ public class ProjectHelper2 extends ProjectHelper {
             }
             if (name.equals(qname)) {
                 throw new SAXParseException("Unexpected element \"{" + uri
-                    + "}" + name + "\" {" + ANT_CORE_URI + "}" + name, context.getLocator());
+                                            + "}" + name + "\" {" + ANT_CORE_URI + "}" + name, context.getLocator());
             }
             throw new SAXParseException("Unexpected element \"" + qname
-                    + "\" " + name, context.getLocator());
+                                        + "\" " + name, context.getLocator());
         }
     }
 
@@ -718,7 +702,7 @@ public class ProjectHelper2 extends ProjectHelper {
             // Set the location of the implicit target associated with the project tag
             context.getImplicitTarget().setLocation(new Location(context.getLocator()));
 
-            /** XXX I really don't like this - the XML processor is still
+            /** TODO I really don't like this - the XML processor is still
              * too 'involved' in the processing. A better solution (IMO)
              * would be to create UE for Project and Target too, and
              * then process the tree and have Project/Target deal with
@@ -751,12 +735,10 @@ public class ProjectHelper2 extends ProjectHelper {
                             project.setName(value);
                             project.addReference(value, project);
                         } else if (isInIncludeMode()) {
-                            if (!"".equals(value)
-                                && (getCurrentTargetPrefix() == null
-                                    || getCurrentTargetPrefix().length() == 0)
-                                ) {
+                            if (!"".equals(value) && getCurrentTargetPrefix()!= null && getCurrentTargetPrefix().endsWith(ProjectHelper.USE_PROJECT_NAME_AS_TARGET_PREFIX))  {
+                                String newTargetPrefix = getCurrentTargetPrefix().replace(ProjectHelper.USE_PROJECT_NAME_AS_TARGET_PREFIX, value);
                                 // help nested include tasks
-                                setCurrentTargetPrefix(value);
+                                setCurrentTargetPrefix(newTargetPrefix);
                             }
                         }
                     }
@@ -772,13 +754,13 @@ public class ProjectHelper2 extends ProjectHelper {
                         baseDir = value;
                     }
                 } else {
-                    // XXX ignore attributes in a different NS ( maybe store them ? )
+                    // TODO ignore attributes in a different NS ( maybe store them ? )
                     throw new SAXParseException("Unexpected attribute \"" + attrs.getQName(i)
-                            + "\"", context.getLocator());
+                                                + "\"", context.getLocator());
                 }
             }
 
-            // XXX Move to Project ( so it is shared by all helpers )
+            // TODO Move to Project ( so it is shared by all helpers )
             String antFileProp =
                 MagicNames.ANT_FILE + "." + context.getCurrentProjectName();
             String dup = project.getProperty(antFileProp);
@@ -805,8 +787,8 @@ public class ProjectHelper2 extends ProjectHelper {
 
                 if (context.isIgnoringProjectTag() && !dupFile.equals(contextFile)) {
                     project.log("Duplicated project name in import. Project "
-                            + context.getCurrentProjectName() + " defined first in " + dup
-                            + " and again in " + contextFile, Project.MSG_WARN);
+                                + context.getCurrentProjectName() + " defined first in " + dup
+                                + " and again in " + contextFile, Project.MSG_WARN);
                 }
             }
             if (nameAttributeSet) {
@@ -839,7 +821,7 @@ public class ProjectHelper2 extends ProjectHelper {
                         project.setBasedir(baseDir);
                     } else {
                         project.setBaseDir(FILE_UTILS.resolveFile(context.getBuildFileParent(),
-                                baseDir));
+                                                                  baseDir));
                     }
                 }
             }
@@ -905,6 +887,7 @@ public class ProjectHelper2 extends ProjectHelper {
             String name = null;
             String depends = "";
             String extensionPoint = null;
+            OnMissingExtensionPoint extensionPointMissing = null;
 
             Project project = context.getProject();
             Target target = "target".equals(tag)
@@ -940,15 +923,21 @@ public class ProjectHelper2 extends ProjectHelper {
                     target.setDescription(value);
                 } else if (key.equals("extensionOf")) {
                     extensionPoint = value;
+                } else if (key.equals("onMissingExtensionPoint")) {
+                    try {
+                        extensionPointMissing = OnMissingExtensionPoint.valueOf(value);
+                    } catch (IllegalArgumentException e) {
+                        throw new BuildException("Invalid onMissingExtensionPoint " + value);
+                    }
                 } else {
                     throw new SAXParseException("Unexpected attribute \"" + key + "\"", context
-                            .getLocator());
+                                                .getLocator());
                 }
             }
 
             if (name == null) {
                 throw new SAXParseException("target element appears without a name attribute",
-                        context.getLocator());
+                                            context.getLocator());
             }
 
             String prefix = null;
@@ -973,12 +962,12 @@ public class ProjectHelper2 extends ProjectHelper {
                 throw new BuildException("Duplicate target '" + name + "'",
                                          target.getLocation());
             }
-            Hashtable projectTargets = project.getTargets();
+            Hashtable<String, Target> projectTargets = project.getTargets();
             boolean   usedTarget = false;
             // If the name has not already been defined define it
             if (projectTargets.containsKey(name)) {
                 project.log("Already defined in main or a previous import, ignore " + name,
-                        Project.MSG_VERBOSE);
+                            Project.MSG_VERBOSE);
             } else {
                 target.setName(name);
                 context.getCurrentTargets().put(name, target);
@@ -990,12 +979,9 @@ public class ProjectHelper2 extends ProjectHelper {
                 if (!isInIncludeMode) {
                     target.setDepends(depends);
                 } else {
-                    for (Iterator iter =
-                             Target.parseDepends(depends, name, "depends")
-                             .iterator();
-                         iter.hasNext(); ) {
-                        target.addDependency(prefix + sep + iter.next());
-                    }
+                    for (String string : Target.parseDepends(depends, name, "depends")) {
+                        target.addDependency(prefix + sep + string);
+                   }
                 }
             }
             if (!isInIncludeMode && context.isIgnoringProjectTag()
@@ -1003,29 +989,43 @@ public class ProjectHelper2 extends ProjectHelper {
                 // In an imported file (and not completely
                 // ignoring the project tag or having a preconfigured prefix)
                 String newName = prefix + sep + name;
-                Target newTarget = usedTarget ? new Target(target) : target;
+                Target newTarget = target;
+                if (usedTarget) {
+                    newTarget = "target".equals(tag)
+                            ? new Target(target) : new ExtensionPoint(target);
+                }
                 newTarget.setName(newName);
                 context.getCurrentTargets().put(newName, newTarget);
                 project.addOrReplaceTarget(newName, newTarget);
             }
+            if (extensionPointMissing != null && extensionPoint == null) {
+                throw new BuildException("onMissingExtensionPoint attribute cannot " +
+                                         "be specified unless extensionOf is specified",
+                                         target.getLocation());
+
+            }
             if (extensionPoint != null) {
                 ProjectHelper helper =
                     (ProjectHelper) context.getProject().
-                        getReference(ProjectHelper.PROJECTHELPER_REFERENCE);
-                for (Iterator iter =
-                         Target.parseDepends(extensionPoint, name, "extensionOf")
-                         .iterator();
-                     iter.hasNext(); ) {
-                    String tgName = (String) iter.next();
-                    if (isInIncludeMode()) {
-                        tgName = prefix + sep + tgName;
+                    getReference(ProjectHelper.PROJECTHELPER_REFERENCE);
+                for (String extPointName : Target.parseDepends(extensionPoint, name, "extensionOf")) {
+                    if (extensionPointMissing == null) {
+                        extensionPointMissing = OnMissingExtensionPoint.FAIL;
                     }
-
                     // defer extensionpoint resolution until the full
                     // import stack has been processed
-                    helper.getExtensionStack().add(new String[] {
-                            tgName, name
-                        });
+                    if (isInIncludeMode()) {
+                        // if in include mode, provide prefix we're including by
+                        // so that we can try and resolve extension point from
+                        // the local file first
+                        helper.getExtensionStack().add(
+                                new String[] {extPointName, target.getName(),
+                                        extensionPointMissing.name(), prefix + sep});
+                    } else {
+                        helper.getExtensionStack().add(
+                                new String[] {extPointName, target.getName(),
+                                        extensionPointMissing.name()});
+                    }
                 }
             }
         }
@@ -1128,7 +1128,7 @@ public class ProjectHelper2 extends ProjectHelper {
             task.setTaskName(qname);
 
             Location location = new Location(context.getLocator().getSystemId(), context
-                    .getLocator().getLineNumber(), context.getLocator().getColumnNumber());
+                                             .getLocator().getLineNumber(), context.getLocator().getColumnNumber());
             task.setLocation(location);
             task.setOwningTarget(context.getCurrentTarget());
 
@@ -1159,8 +1159,8 @@ public class ProjectHelper2 extends ProjectHelper {
                 // be namespaced, need to extract the name
                 // and convert from qualified name to uri/name
                 if (ANT_TYPE.equals(name)
-                        || (ANT_CORE_URI.equals(attrUri)
-                            && ANT_TYPE.equals(attrs.getLocalName(i)))) {
+                    || (ANT_CORE_URI.equals(attrUri)
+                        && ANT_TYPE.equals(attrs.getLocalName(i)))) {
                     name = ANT_TYPE;
                     int index = value.indexOf(":");
                     if (index >= 0) {
@@ -1168,10 +1168,10 @@ public class ProjectHelper2 extends ProjectHelper {
                         String mappedUri = context.getPrefixMapping(prefix);
                         if (mappedUri == null) {
                             throw new BuildException("Unable to find XML NS prefix \"" + prefix
-                                    + "\"");
+                                                     + "\"");
                         }
                         value = ProjectHelper.genComponentName(mappedUri, value
-                                .substring(index + 1));
+                                                               .substring(index + 1));
                     }
                 }
                 wrapper.setAttribute(name, value);

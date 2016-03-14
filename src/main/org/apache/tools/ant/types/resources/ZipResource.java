@@ -18,20 +18,20 @@
 package org.apache.tools.ant.types.resources;
 
 import java.io.File;
+import java.io.FilterInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.IOException;
-import java.io.FilterInputStream;
 
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
-import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.zip.ZipFile;
 import org.apache.tools.zip.ZipEntry;
 import org.apache.tools.zip.ZipExtraField;
+import org.apache.tools.zip.ZipFile;
 
 /**
  * A Resource representation of an entry in a zipfile.
@@ -75,7 +75,7 @@ public class ZipResource extends ArchiveResource {
      * @return the zipfile as a File.
      */
     public File getZipfile() {
-        FileProvider fp = (FileProvider) getArchive().as(FileProvider.class);
+        FileProvider fp = getArchive().as(FileProvider.class);
         return fp.getFile();
     }
 

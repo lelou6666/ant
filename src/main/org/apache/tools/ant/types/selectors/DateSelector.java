@@ -20,8 +20,8 @@ package org.apache.tools.ant.types.selectors;
 
 import java.io.File;
 import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Locale;
 
 import org.apache.tools.ant.Project;
@@ -71,7 +71,7 @@ public class DateSelector extends BaseExtendSelector {
      * @return a string describing this object
      */
     public String toString() {
-        StringBuffer buf = new StringBuffer("{dateselector date: ");
+        StringBuilder buf = new StringBuilder("{dateselector date: ");
         buf.append(dateTime);
         buf.append(" compare: ").append(when.getValue());
         buf.append(" granularity: ");

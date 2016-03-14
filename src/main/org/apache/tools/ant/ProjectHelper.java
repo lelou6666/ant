@@ -43,7 +43,12 @@ public class ProjectHelper {
     /** The URI for antlib current definitions */
     public static final String ANT_CURRENT_URI      = "ant:current";
 
-    /** The URI for defined types/tasks - the format is antlib:<package> */
+    /** The URI for ant specific attributes
+     * @since Ant 1.9.1
+     * */
+    public static final String ANT_ATTRIBUTE_URI      = "ant:attribute";
+
+    /** The URI for defined types/tasks - the format is antlib:&lt;package&gt; */
     public static final String ANTLIB_URI     = "antlib:";
 
     /** Polymorphic attribute  */
@@ -67,6 +72,12 @@ public class ProjectHelper {
     public static final String PROJECTHELPER_REFERENCE = MagicNames.REFID_PROJECT_HELPER;
 
     /**
+     * constant to denote use project name as target prefix
+     * @since Ant 1.9.1
+     */
+    public static final String USE_PROJECT_NAME_AS_TARGET_PREFIX = "USE_PROJECT_NAME_AS_TARGET_PREFIX";
+
+    /**
      * Configures the project with the contents of the specified build file.
      *
      * @param project The project to configure. Must not be <code>null</code>.
@@ -82,6 +93,59 @@ public class ProjectHelper {
         helper.parse(project, buildFile);
     }
 
+    /**
+     * Possible value for target's onMissingExtensionPoint attribute. It determines how to deal with
+     * targets that want to extend missing extension-points.
+     * <p>
+     * This class behaves like a Java 1.5 Enum class.
+     *
+     * @since 1.8.2
+     */
+    public static final class OnMissingExtensionPoint {
+
+        /** fail if the extension-point is not defined */
+        public static final OnMissingExtensionPoint FAIL = new OnMissingExtensionPoint(
+                "fail");
+
+        /** warn if the extension-point is not defined */
+        public static final OnMissingExtensionPoint WARN = new OnMissingExtensionPoint(
+                "warn");
+
+        /** ignore the extensionOf attribute if the extension-point is not defined */
+        public static final OnMissingExtensionPoint IGNORE = new OnMissingExtensionPoint(
+                "ignore");
+
+        private static final OnMissingExtensionPoint[] values = new OnMissingExtensionPoint[] {
+                                FAIL, WARN, IGNORE };
+
+        private final String name;
+
+        private OnMissingExtensionPoint(String name) {
+            this.name = name;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public String toString() {
+            return name;
+        }
+
+        public static OnMissingExtensionPoint valueOf(String name) {
+            if (name == null) {
+                throw new NullPointerException();
+            }
+            for (int i = 0; i < values.length; i++) {
+                if (name.equals(values[i].name())) {
+                    return values[i];
+                }
+            }
+            throw new IllegalArgumentException(
+                    "Unknown onMissingExtensionPoint " + name);
+        }
+    }
+
     /** Default constructor */
     public ProjectHelper() {
     }
@@ -90,8 +154,8 @@ public class ProjectHelper {
     // The following properties are required by import ( and other tasks
     // that read build files using ProjectHelper ).
 
-    private Vector importStack = new Vector();
-    private List extensionStack = new LinkedList();
+    private Vector<Object> importStack = new Vector<Object>();
+    private List<String[]> extensionStack = new LinkedList<String[]>();
 
     /**
      *  Import stack.
@@ -100,7 +164,7 @@ public class ProjectHelper {
      *
      * @return the stack of import source objects.
      */
-    public Vector getImportStack() {
+    public Vector<Object> getImportStack() {
         return importStack;
     }
 
@@ -108,19 +172,16 @@ public class ProjectHelper {
      * Extension stack.
      * Used to keep track of targets that extend extension points.
      *
-     * @return a list of two element string arrays where the first
-     * element is the name of the extensionpoint and the second the
-     * name of the target
+     * @return a list of three element string arrays where the first
+     * element is the name of the extensionpoint, the second the name
+     * of the target and the third the name of the enum like class
+     * {@link OnMissingExtensionPoint}.
      */
-    public List getExtensionStack() {
+    public List<String[]> getExtensionStack() {
         return extensionStack;
     }
 
-    private final static ThreadLocal targetPrefix = new ThreadLocal() {
-            protected Object initialValue() {
-                return (String) null;
-            }
-        };
+    private static final ThreadLocal<String> targetPrefix = new ThreadLocal<String>();
 
     /**
      * The prefix to prepend to imported target names.
@@ -132,7 +193,7 @@ public class ProjectHelper {
      * @since Ant 1.8.0
      */
     public static String getCurrentTargetPrefix() {
-        return (String) targetPrefix.get();
+        return targetPrefix.get();
     }
 
     /**
@@ -144,8 +205,8 @@ public class ProjectHelper {
         targetPrefix.set(prefix);
     }
 
-    private final static ThreadLocal prefixSeparator = new ThreadLocal() {
-            protected Object initialValue() {
+    private static final ThreadLocal<String> prefixSeparator = new ThreadLocal<String>() {
+            protected String initialValue() {
                 return ".";
             }
         };
@@ -153,12 +214,12 @@ public class ProjectHelper {
     /**
      * The separator between the prefix and the target name.
      *
-     * <p>May be set by &lt;import&gt;'s prefixSeperator attribute.</p>
+     * <p>May be set by &lt;import&gt;'s prefixSeparator attribute.</p>
      *
      * @since Ant 1.8.0
      */
     public static String getCurrentPrefixSeparator() {
-        return (String) prefixSeparator.get();
+        return prefixSeparator.get();
     }
 
     /**
@@ -170,8 +231,8 @@ public class ProjectHelper {
         prefixSeparator.set(sep);
     }
 
-    private final static ThreadLocal inIncludeMode = new ThreadLocal() {
-            protected Object initialValue() {
+    private static final ThreadLocal<Boolean> inIncludeMode = new ThreadLocal<Boolean>() {
+            protected Boolean initialValue() {
                 return Boolean.FALSE;
             }
         };
@@ -192,7 +253,7 @@ public class ProjectHelper {
      * @since Ant 1.8.0
      */
     public static boolean isInIncludeMode() {
-        return inIncludeMode.get() == Boolean.TRUE;
+        return Boolean.TRUE.equals(inIncludeMode.get());
     }
 
     /**
@@ -202,7 +263,7 @@ public class ProjectHelper {
      * @since Ant 1.8.0
      */
     public static void setInIncludeMode(boolean includeMode) {
-        inIncludeMode.set(includeMode ? Boolean.TRUE : Boolean.FALSE);
+        inIncludeMode.set(Boolean.valueOf(includeMode));
     }
 
     // --------------------  Parse method  --------------------
@@ -226,7 +287,7 @@ public class ProjectHelper {
 
     /**
      * Get the first project helper found in the classpath
-     * 
+     *
      * @return an project helper, never <code>null</code>
      * @see org.apache.tools.ant.ProjectHelperRepository#getHelpers()
      */
@@ -235,7 +296,7 @@ public class ProjectHelper {
     }
 
     /**
-     * JDK1.1 compatible access to the context class loader. Cut & paste from JAXP.
+     * JDK1.1 compatible access to the context class loader. Cut &amp; paste from JAXP.
      *
      * @deprecated since 1.6.x.
      *             Use LoaderUtils.getContextClassLoader()
@@ -382,7 +443,7 @@ public class ProjectHelper {
      * @param value The string to be scanned for property references.
      *              May be <code>null</code>, in which case this
      *              method returns immediately with no effect.
-     * @param keys  Mapping (String to String) of property names to their
+     * @param keys  Mapping (String to Object) of property names to their
      *              values. Must not be <code>null</code>.
      *
      * @exception BuildException if the string contains an opening
@@ -393,7 +454,7 @@ public class ProjectHelper {
      * @deprecated since 1.6.x.
      *             Use PropertyHelper.
      */
-     public static String replaceProperties(Project project, String value, Hashtable keys)
+     public static String replaceProperties(Project project, String value, Hashtable<String, Object> keys)
              throws BuildException {
         PropertyHelper ph = PropertyHelper.getPropertyHelper(project);
         return ph.replaceProperties(null, value, keys);
@@ -420,7 +481,7 @@ public class ProjectHelper {
      * @exception BuildException if the string contains an opening
      *                           <code>${</code> without a closing <code>}</code>
      */
-    public static void parsePropertyString(String value, Vector fragments, Vector propertyRefs)
+    public static void parsePropertyString(String value, Vector<String> fragments, Vector<String> propertyRefs)
             throws BuildException {
         PropertyHelper.parsePropertyStringDefault(value, fragments, propertyRefs);
     }
@@ -430,7 +491,7 @@ public class ProjectHelper {
      * For BC purposes the names from the ant core uri will be
      * mapped to "name", other names will be mapped to
      * uri + ":" + name.
-     * @param uri   The namepace URI
+     * @param uri   The namespace URI
      * @param name  The localname
      * @return      The stringified form of the ns name
      */
@@ -470,6 +531,16 @@ public class ProjectHelper {
             return componentName;
         }
         return componentName.substring(index + 1);
+    }
+
+    /**
+     * Convert an attribute namespace to a "component name".
+     * @param ns the xml namespace uri.
+     * @return the converted value.
+     * @since Ant 1.9.1
+     */
+    public static String nsToComponentName(String ns) {
+        return "attribute namespace:" + ns;
     }
 
     /**
@@ -533,7 +604,7 @@ public class ProjectHelper {
     /**
      * Check if the helper supports the kind of file. Some basic check on the
      * extension's file should be done here.
-     * 
+     *
      * @param buildFile
      *            the file expected to be parsed (never <code>null</code>)
      * @return true if the helper supports it
@@ -545,11 +616,83 @@ public class ProjectHelper {
 
     /**
      * The file name of the build script to be parsed if none specified on the command line
-     * 
+     *
      * @return the name of the default file (never <code>null</code>)
      * @since Ant 1.8.0
      */
     public String getDefaultBuildFile() {
         return Main.DEFAULT_BUILD_FILENAME;
+    }
+
+    /**
+     * Check extensionStack and inject all targets having extensionOf attributes
+     * into extensionPoint.
+     * <p>
+     * This method allow you to defer injection and have a powerful control of
+     * extensionPoint wiring.
+     * </p>
+     * <p>
+     * This should be invoked by each concrete implementation of ProjectHelper
+     * when the root "buildfile" and all imported/included buildfile are loaded.
+     * </p>
+     *
+     * @param project The project containing the target. Must not be
+     *            <code>null</code>.
+     * @exception BuildException if OnMissingExtensionPoint.FAIL and
+     *                extensionPoint does not exist
+     * @see OnMissingExtensionPoint
+     * @since 1.9
+     */
+    public void resolveExtensionOfAttributes(Project project)
+            throws BuildException {
+        for (String[] extensionInfo : getExtensionStack()) {
+            String extPointName = extensionInfo[0];
+            String targetName = extensionInfo[1];
+            OnMissingExtensionPoint missingBehaviour = OnMissingExtensionPoint.valueOf(extensionInfo[2]);
+            // if the file has been included or imported, it may have a prefix
+            // we should consider when trying to resolve the target it is
+            // extending
+            String prefixAndSep = extensionInfo.length > 3 ? extensionInfo[3] : null;
+
+            // find the target we're extending
+            Hashtable<String, Target> projectTargets = project.getTargets();
+            Target extPoint = null;
+            if (prefixAndSep == null) {
+                // no prefix - not from an imported/included build file
+                extPoint = projectTargets.get(extPointName);
+            } else {
+                // we have a prefix, which means we came from an include/import
+
+                // FIXME: here we handle no particular level of include. We try
+                // the fully prefixed name, and then the non-prefixed name. But
+                // there might be intermediate project in the import stack,
+                // which prefix should be tested before testing the non-prefix
+                // root name.
+
+                extPoint = projectTargets.get(prefixAndSep + extPointName);
+                if (extPoint == null) {
+                    extPoint = projectTargets.get(extPointName);
+                }
+            }
+
+            // make sure we found a point to extend on
+            if (extPoint == null) {
+                String message = "can't add target " + targetName
+                        + " to extension-point " + extPointName
+                        + " because the extension-point is unknown.";
+                if (missingBehaviour == OnMissingExtensionPoint.FAIL) {
+                    throw new BuildException(message);
+                } else if (missingBehaviour == OnMissingExtensionPoint.WARN) {
+                    Target t = projectTargets.get(targetName);
+                    project.log(t, "Warning: " + message, Project.MSG_WARN);
+                }
+            } else {
+                if (!(extPoint instanceof ExtensionPoint)) {
+                    throw new BuildException("referenced target " + extPointName
+                            + " is not an extension-point");
+                }
+                extPoint.addDependency(targetName);
+            }
+        }
     }
 }

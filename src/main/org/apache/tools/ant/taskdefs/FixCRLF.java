@@ -18,23 +18,24 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.Reader;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.InputStreamReader;
-import java.util.Vector;
+import java.io.Reader;
 import java.util.Enumeration;
 import java.util.NoSuchElementException;
-import org.apache.tools.ant.Project;
+import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
-import org.apache.tools.ant.filters.FixCrLfFilter;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.filters.ChainableReader;
-import org.apache.tools.ant.types.FilterChain;
+import org.apache.tools.ant.filters.FixCrLfFilter;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.types.FilterChain;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -95,7 +96,7 @@ public class FixCRLF extends MatchingTask implements ChainableReader {
     private File destDir = null;
     private File file;
     private FixCrLfFilter filter = new FixCrLfFilter();
-    private Vector fcv = null;
+    private Vector<FilterChain> fcv = null;
 
     /**
      * Encoding to assume for the files
@@ -349,12 +350,12 @@ public class FixCRLF extends MatchingTask implements ChainableReader {
         if (fcv == null) {
             FilterChain fc = new FilterChain();
             fc.add(filter);
-            fcv = new Vector(1);
+            fcv = new Vector<FilterChain>(1);
             fcv.add(fc);
         }
-        File tmpFile = FILE_UTILS.createTempFile("fixcrlf", "", null, true, false);
+        File tmpFile = FILE_UTILS.createTempFile("fixcrlf", "", null, true, true);
         try {
-            FILE_UTILS.copyFile(srcFile, tmpFile, null, fcv, false, false,
+            FILE_UTILS.copyFile(srcFile, tmpFile, null, fcv, true, false,
                 encoding, outputEncoding == null ? encoding : outputEncoding,
                 getProject());
 
@@ -390,7 +391,7 @@ public class FixCRLF extends MatchingTask implements ChainableReader {
      * Deprecated, the functionality has been moved to filters.FixCrLfFilter.
      * @deprecated since 1.7.0.
      */
-    protected class OneLiner implements Enumeration {
+    protected class OneLiner implements Enumeration<Object> {
         private static final int UNDEF = -1;
         private static final int NOTJAVA = 0;
         private static final int LOOKING = 1;

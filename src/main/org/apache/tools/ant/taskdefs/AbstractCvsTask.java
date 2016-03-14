@@ -25,16 +25,16 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.Environment;
-import org.apache.tools.ant.util.StringUtils;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.StringUtils;
 
 /**
  * original Cvs.java 1.20
@@ -55,10 +55,10 @@ public abstract class AbstractCvsTask extends Task {
 
     private Commandline cmd = new Commandline();
 
-    private ArrayList modules = new ArrayList();
+    private ArrayList<Module> modules = new ArrayList<Module>();
 
     /** list of Commandline children */
-    private Vector vecCommandlines = new Vector();
+    private Vector<Commandline> vecCommandlines = new Vector<Commandline>();
 
     /**
      * the CVSROOT variable.
@@ -260,7 +260,7 @@ public abstract class AbstractCvsTask extends Task {
      * @throws BuildException if failonError is set to true and the cvs command fails
      */
     protected void runCommand(Commandline toExecute) throws BuildException {
-        // XXX: we should use JCVS (www.ice.com/JCVS) instead of
+        // TODO: we should use JCVS (www.ice.com/JCVS) instead of
         // command line execution so that we don't rely on having
         // native CVS stuff around (SM)
 
@@ -404,7 +404,8 @@ public abstract class AbstractCvsTask extends Task {
         }
 
         try {
-            for (int i = 0; i < vecCommandlines.size(); i++) {
+            final int size = vecCommandlines.size();
+            for (int i = 0; i < size; i++) {
                 this.runCommand((Commandline) vecCommandlines.elementAt(i));
             }
         } finally {
@@ -768,8 +769,7 @@ public abstract class AbstractCvsTask extends Task {
         if (cvsPackage != null) {
             c.createArgument().setLine(cvsPackage);
         }
-        for (Iterator iter = modules.iterator(); iter.hasNext(); ) {
-            Module m = (Module) iter.next();
+        for (Module m : modules) {
             c.createArgument().setValue(m.getName());
         }
         if (this.compression > 0
@@ -854,8 +854,10 @@ public abstract class AbstractCvsTask extends Task {
         modules.add(m);
     }
 
-    protected List getModules() {
-        return (List) modules.clone();
+    protected List<Module> getModules() {
+        @SuppressWarnings("unchecked")
+        final List<Module> clone = (List<Module>) modules.clone();
+        return clone;
     }
 
     public static final class Module {

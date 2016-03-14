@@ -20,6 +20,7 @@ package org.apache.tools.ant.taskdefs;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
+
 import org.apache.tools.ant.BuildEvent;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -198,7 +199,7 @@ public class Recorder extends Task implements SubBuildListener {
     /**
      * Gets the recorder that's associated with the passed in name. If the
      * recorder doesn't exist, then a new one is created.
-     * @param name the name of the recoder
+     * @param name the name of the recorder
      * @param proj the current project
      * @return a recorder
      * @throws BuildException on error

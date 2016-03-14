@@ -19,22 +19,21 @@ package org.apache.tools.ant.util;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Reader;
-import java.io.FileNotFoundException;
 import java.io.InputStreamReader;
-
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.ProjectComponent;
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.types.Resource;
-import org.apache.tools.ant.types.ResourceCollection;
-
-import java.util.Map;
+import java.io.Reader;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.ProjectComponent;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.ResourceCollection;
 
 /**
  * This is a common abstract base case for script runners.
@@ -249,9 +248,7 @@ public abstract class ScriptRunnerBase {
      * @throws BuildException if a resource cannot be read
      */
     public void loadResources(ResourceCollection collection) {
-        Iterator resources = collection.iterator();
-        while (resources.hasNext()) {
-            Resource resource = (Resource) resources.next();
+        for (Resource resource : collection) {
             loadResource(resource);
         }
     }

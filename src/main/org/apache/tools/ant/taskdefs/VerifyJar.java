@@ -18,20 +18,18 @@
 
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.Project;
+import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
+
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.filters.ChainableReader;
-import org.apache.tools.ant.types.RedirectorElement;
 import org.apache.tools.ant.types.FilterChain;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.RedirectorElement;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.resources.FileProvider;
-import org.apache.tools.ant.types.resources.FileResource;
-
-import java.util.Iterator;
-import java.io.File;
-import java.io.Reader;
-import java.io.IOException;
 
 /**
  * JAR verification task.
@@ -90,10 +88,8 @@ public class VerifyJar extends AbstractJarSignerTask {
 
         try {
             Path sources = createUnifiedSourcePath();
-            Iterator iter = sources.iterator();
-            while (iter.hasNext()) {
-                Resource r = (Resource) iter.next();
-                FileProvider fr = (FileProvider) r.as(FileProvider.class);
+            for (Resource r : sources) {
+                FileProvider fr = r.as(FileProvider.class);
                 verifyOneJar(fr.getFile());
             }
 

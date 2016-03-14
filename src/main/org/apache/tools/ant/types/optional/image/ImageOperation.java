@@ -17,8 +17,9 @@
  */
 package org.apache.tools.ant.types.optional.image;
 
-import org.apache.tools.ant.types.DataType;
 import java.util.Vector;
+
+import org.apache.tools.ant.types.DataType;
 
 /**
  *
@@ -26,7 +27,7 @@ import java.util.Vector;
  */
 public abstract class ImageOperation extends DataType {
      // CheckStyle:VisibilityModifier OFF - bc
-    protected Vector instructions = new Vector();
+    protected Vector<ImageOperation> instructions = new Vector<ImageOperation>();
      // CheckStyle:VisibilityModifier ON
 
     /**

@@ -19,13 +19,18 @@
 package org.apache.tools.ant.types.selectors;
 
 import java.io.File;
-import junit.framework.TestCase;
+import org.junit.Test;
 
-public class TokenizedPatternTest extends TestCase {
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+public class TokenizedPatternTest {
     private static final String DOT_SVN_PATTERN =
         SelectorUtils.DEEP_TREE_MATCH + File.separator + ".svn"
         + File.separator + SelectorUtils.DEEP_TREE_MATCH;
 
+    @Test
     public void testTokenization() {
         TokenizedPattern pat = new TokenizedPattern(DOT_SVN_PATTERN);
         assertEquals(3, pat.depth());
@@ -34,11 +39,13 @@ public class TokenizedPatternTest extends TestCase {
         assertTrue(pat.containsPattern(".svn"));
     }
 
+    @Test
     public void testEndsWith() {
         assertTrue(new TokenizedPattern(DOT_SVN_PATTERN)
                    .endsWith(SelectorUtils.DEEP_TREE_MATCH));
     }
 
+    @Test
     public void testWithoutLastToken() {
         assertEquals(SelectorUtils.DEEP_TREE_MATCH + File.separatorChar
                      + ".svn" + File.separator,
@@ -46,12 +53,25 @@ public class TokenizedPatternTest extends TestCase {
                      .withoutLastToken().getPattern());
     }
 
+    @Test
     public void testMatchPath() {
         File f = new File(".svn");
         TokenizedPath p = new TokenizedPath(f.getAbsolutePath());
         assertTrue(new TokenizedPattern(DOT_SVN_PATTERN).matchPath(p, true));
         assertTrue(new TokenizedPattern(DOT_SVN_PATTERN)
                    .withoutLastToken().matchPath(p, true));
+    }
+
+    @Test
+    /**
+     * this test illustrates the behavior described in bugzilla 59114
+     * meaning that the pattern "**" matches the empty path
+     * but the pattern "*" does not
+     */
+    public void testEmptyFolderWithStarStar() {
+        TokenizedPath p = TokenizedPath.EMPTY_PATH;
+        assertTrue(new TokenizedPattern(SelectorUtils.DEEP_TREE_MATCH).matchPath(p, true));
+        assertFalse(new TokenizedPattern("*").matchPath(p, true));
     }
 
 }

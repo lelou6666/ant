@@ -18,8 +18,8 @@
 
 package org.apache.tools.ant.types.selectors;
 
-import java.util.Enumeration;
 import java.io.File;
+import java.util.Enumeration;
 
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.PropertyHelper;
@@ -114,7 +114,7 @@ public class SelectSelector extends BaseSelectorContainer {
      * Returns an enumerator for accessing the set of selectors.
      * @return an enumerator that goes through each of the selectors
      */
-    public Enumeration selectorElements() {
+    public Enumeration<FileSelector> selectorElements() {
         if (isReference()) {
             return getRef().selectorElements();
         }
@@ -220,11 +220,11 @@ public class SelectSelector extends BaseSelectorContainer {
             return false;
         }
 
-        Enumeration e = selectorElements();
-        if (!(e.hasMoreElements())) {
+        Enumeration<FileSelector> e = selectorElements();
+        if (!e.hasMoreElements()) {
             return true;
         }
-        FileSelector f = (FileSelector) e.nextElement();
+        FileSelector f = e.nextElement();
         return f.isSelected(basedir, filename, file);
     }
 }

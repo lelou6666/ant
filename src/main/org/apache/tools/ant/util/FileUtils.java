@@ -24,11 +24,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
-import java.io.UnsupportedEncodingException;
 import java.io.Writer;
-import java.net.MalformedURLException;
 import java.net.HttpURLConnection;
 import java.net.JarURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channel;
@@ -139,7 +138,7 @@ public class FileUtils {
      *      formed.
      */
     public URL getFileURL(File file) throws MalformedURLException {
-        return new URL(toURI(file.getAbsolutePath()));
+        return new URL(file.toURI().toASCIIString());
     }
 
     /**
@@ -638,7 +637,7 @@ public class FileUtils {
         int len = filename.length();
         return (c == sep && (len == 1 || filename.charAt(1) != sep))
                 || (Character.isLetter(c) && len > 1
-                && filename.indexOf(':') == 1
+                && filename.charAt(1) == ':'
                 && (len == 2 || filename.charAt(2) != sep));
     }
 
@@ -754,7 +753,8 @@ public class FileUtils {
             }
         }
         StringBuffer sb = new StringBuffer();
-        for (int i = 0; i < s.size(); i++) {
+        final int size = s.size();
+        for (int i = 0; i < size; i++) {
             if (i > 1) {
                 // not before the filesystem root and not after it, since root
                 // already contains one
@@ -898,6 +898,8 @@ public class FileUtils {
         return createTempFile(prefix, suffix, parentDir, false, false);
     }
 
+    private static final String NULL_PLACEHOLDER = "null";
+
     /**
      * Create a temporary file in a given directory.
      *
@@ -925,6 +927,12 @@ public class FileUtils {
         String parent = (parentDir == null)
                 ? System.getProperty("java.io.tmpdir")
                 : parentDir.getPath();
+        if (prefix == null) {
+            prefix = NULL_PLACEHOLDER;
+        }
+        if (suffix == null) {
+            suffix = NULL_PLACEHOLDER;
+        }
 
         if (createFile) {
             try {
@@ -1201,7 +1209,7 @@ public class FileUtils {
      * @since Ant 1.6
      */
     public String toURI(String path) {
-        return new File(path).getAbsoluteFile().toURI().toASCIIString();
+        return new File(path).toURI().toASCIIString();
     }
 
     /**
@@ -1249,6 +1257,25 @@ public class FileUtils {
     }
 
     /**
+     * Are the two File instances pointing to the same object on the
+     * file system?
+     * @since Ant 1.8.2
+     */
+    public boolean areSame(File f1, File f2) throws IOException {
+        if (f1 == null && f2 == null) {
+            return true;
+        }
+        if (f1 == null || f2 == null) {
+            return false;
+        }
+        File f1Normalized = normalize(f1.getAbsolutePath());
+        File f2Normalized = normalize(f2.getAbsolutePath());
+        return f1Normalized.equals(f2Normalized)
+            || f1Normalized.getCanonicalFile().equals(f2Normalized
+                                                      .getCanonicalFile());
+    }
+
+    /**
      * Renames a file, even if that involves crossing file system boundaries.
      *
      * <p>This will remove <code>to</code> (if it exists), ensure that
@@ -1273,16 +1300,16 @@ public class FileUtils {
             System.err.println("Cannot rename nonexistent file " + from);
             return;
         }
-        if (from.equals(to)) {
+        if (from.getAbsolutePath().equals(to.getAbsolutePath())) {
             System.err.println("Rename of " + from + " to " + to + " is a no-op.");
             return;
         }
-        if (to.exists() &&
-            !(from.equals(to.getCanonicalFile()) || tryHardToDelete(to))) {
+        if (to.exists() && !(areSame(from, to) || tryHardToDelete(to))) {
             throw new IOException("Failed to delete " + to + " while trying to rename " + from);
         }
         File parent = to.getParentFile();
-        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+        if (parent != null && !parent.isDirectory()
+            && !(parent.mkdirs() || parent.isDirectory())) {
             throw new IOException("Failed to create directory " + parent
                                   + " while trying to rename " + from);
         }
@@ -1319,21 +1346,21 @@ public class FileUtils {
      * test whether a file or directory exists, with an error in the
      * upper/lower case spelling of the name.
      * Using this method is only interesting on case insensitive file systems
-     * (Windows).<br/>
+     * (Windows).<br>
      * It will return true only if 3 conditions are met :
-     * <br/>
+     * <br>
      * <ul>
      *   <li>operating system is case insensitive</li>
      *   <li>file exists</li>
      *   <li>actual name from directory reading is different from the
      *       supplied argument</li>
      * </ul>
-     *  <br/>
+     * <br>
      * the purpose is to identify files or directories on case-insensitive
-     * filesystems whose case is not what is expected.<br/>
+     * filesystems whose case is not what is expected.<br>
      * Possibly to rename them afterwards to the desired upper/lowercase
      * combination.
-     * <br/>
+     *
      * @param localFile file to test
      * @return true if the file exists and the case of the actual file
      *              is not the case of the parameter
@@ -1536,8 +1563,19 @@ public class FileUtils {
      * @since Ant 1.8.0
      */
     public boolean tryHardToDelete(File f) {
+        return tryHardToDelete(f, ON_WINDOWS);
+    }
+
+    /**
+     * If delete does not work, call System.gc() if asked to, wait a
+     * little and try again.
+     *
+     * @return whether deletion was successful
+     * @since Ant 1.8.3
+     */
+    public boolean tryHardToDelete(File f, boolean runGC) {
         if (!f.delete()) {
-            if (ON_WINDOWS) {
+            if (runGC) {
                 System.gc();
             }
             try {
@@ -1550,11 +1588,10 @@ public class FileUtils {
         return true;
     }
 
-
     /**
      * Calculates the relative path between two files.
      * <p>
-     * Implementation note:<br/> This function may throw an IOException if an I/O error occurs
+     * Implementation note:<br>This function may throw an IOException if an I/O error occurs
      * because its use of the canonical pathname may require filesystem queries.
      * </p>
      *

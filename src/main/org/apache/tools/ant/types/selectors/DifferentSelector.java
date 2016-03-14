@@ -18,11 +18,11 @@
 
 package org.apache.tools.ant.types.selectors;
 
-import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.ant.BuildException;
-
 import java.io.File;
 import java.io.IOException;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * This selector selects files against a mapped set of target files, selecting
@@ -44,7 +44,7 @@ import java.io.IOException;
  * Clearly, however, bulk file comparisons is inefficient; anything that can
  * use timestamps is to be preferred. If this selector must be used, use it
  * over as few files as possible, perhaps following it with an &lt;uptodate;&gt
- * to keep the descendent routines conditional.
+ * to keep the descendant routines conditional.
  *
  */
 public class DifferentSelector extends MappingSelector {

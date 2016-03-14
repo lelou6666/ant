@@ -27,6 +27,7 @@ import java.util.Iterator;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
+
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -251,7 +252,7 @@ public class WebsphereDeploymentTool extends GenericDeploymentTool {
     /**
      * Flag to enable internal tracing when set, optional, default false.
      *
-     * @param trace a <code>boolean</code> vaule.
+     * @param trace a <code>boolean</code> value.
      */
     public void setTrace(boolean trace) {
         this.trace = trace;
@@ -308,7 +309,7 @@ public class WebsphereDeploymentTool extends GenericDeploymentTool {
 
 
     /**
-     * Decide, wether ejbdeploy should be called or not;
+     * Decide, whether ejbdeploy should be called or not;
      * optional, default true.
      *
      * @param ejbdeploy a <code>boolean</code> value.
@@ -665,7 +666,7 @@ public class WebsphereDeploymentTool extends GenericDeploymentTool {
      * websphere jar file can remain the same. If the Interfaces, ie. the
      * method signatures change or if the xml deployment descriptors changed,
      * the whole jar needs to be rebuilt with ejbdeploy. This is not strictly
-     * true for the xml files. If the JNDI name changes then the jar doesnt
+     * true for the xml files. If the JNDI name changes then the jar doesn't
      * have to be rebuild, but if the resources references change then it
      * does. At this point the websphere jar gets rebuilt if the xml files
      * change at all.

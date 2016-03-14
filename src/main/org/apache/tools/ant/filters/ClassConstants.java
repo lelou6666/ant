@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.util.ResourceUtils;
 
@@ -106,10 +107,10 @@ public final class ClassConstants
             } else {
                 final byte[] bytes = clazz.getBytes(ResourceUtils.ISO_8859_1);
                 try {
-                    final Class javaClassHelper =
+                    final Class<?> javaClassHelper =
                         Class.forName(JAVA_CLASS_HELPER);
                     if (javaClassHelper != null) {
-                        final Class[] params = {
+                        final Class<?>[] params = {
                             byte[].class
                         };
                         final Method getConstants =

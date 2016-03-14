@@ -17,11 +17,32 @@
  */
 package org.apache.tools.ant.taskdefs;
 
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.io.Reader;
+import java.io.StringReader;
+import java.sql.Blob;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.Enumeration;
+import java.util.Locale;
+import java.util.StringTokenizer;
+import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.ant.util.KeepAliveOutputStream;
-import org.apache.tools.ant.util.StringUtils;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Resource;
@@ -30,32 +51,9 @@ import org.apache.tools.ant.types.resources.Appendable;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Union;
-
-import java.io.File;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.io.BufferedOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.Reader;
-import java.io.BufferedReader;
-import java.io.StringReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import java.sql.Blob;
-import java.sql.Connection;
-import java.sql.Statement;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.Types;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.KeepAliveOutputStream;
+import org.apache.tools.ant.util.StringUtils;
 
 /**
  * Executes a series of SQL statements on a database using JDBC.
@@ -92,6 +90,7 @@ public class SQLExec extends JDBCTask {
         /** The enumerated strings */
         public static final String NORMAL = "normal", ROW = "row";
         /** @return the enumerated strings */
+        @Override
         public String[] getValues() {
             return new String[] {NORMAL, ROW};
         }
@@ -163,6 +162,11 @@ public class SQLExec extends JDBCTask {
     private Resource output = null;
 
     /**
+     * Output encoding.
+     */
+    private String outputEncoding = null;
+
+    /**
      * Action to perform if an error is found
      */
     private String onError = "abort";
@@ -204,7 +208,7 @@ public class SQLExec extends JDBCTask {
     private boolean rawBlobs;
 
     /**
-     * delimers must match in case and whitespace is significant.
+     * delimiters must match in case and whitespace is significant.
      * @since Ant 1.8.0
      */
     private boolean strictDelimiterMatching = true;
@@ -245,7 +249,7 @@ public class SQLExec extends JDBCTask {
     private String csvQuoteChar = null;
 
     /**
-     * Whether a warning is an error - in which case onError aplies.
+     * Whether a warning is an error - in which case onError applies.
      * @since Ant 1.8.0
      */
     private boolean treatWarningsAsErrors = false;
@@ -429,6 +433,17 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
+     * The encoding to use when writing the result to a resource.
+     * <p>Default's to the platform's default encoding</p>
+     * @param outputEncoding the name of the encoding or null for the
+     * platform's default encoding
+     * @since Ant 1.9.4
+     */
+    public void setOutputEncoding(String outputEncoding) {
+        this.outputEncoding = outputEncoding;
+    }
+
+    /**
      * whether output should be appended to or overwrite
      * an existing file.  Defaults to false.
      *
@@ -478,9 +493,9 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
-     * If false, delimiters will be searched for in a case-insesitive
-     * manner (i.e. delimer="go" matches "GO") and surrounding
-     * whitespace will be ignored (delimter="go" matches "GO ").
+     * If false, delimiters will be searched for in a case-insensitive
+     * manner (i.e. delimiter="go" matches "GO") and surrounding
+     * whitespace will be ignored (delimiter="go" matches "GO ").
      * @since Ant 1.8.0
      */
     public void setStrictDelimiterMatching(boolean b) {
@@ -496,7 +511,7 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
-     * Whether a warning is an error - in which case onError aplies.
+     * Whether a warning is an error - in which case onError applies.
      * @since Ant 1.8.0
      */
     public void setTreatWarningsAsErrors(boolean b) {
@@ -526,7 +541,7 @@ public class SQLExec extends JDBCTask {
      * will be quoted, not even if they contain the column
      * separator.</p>
      *
-     * <p><b>Note:<b> BLOB values will never be quoted.</p>
+     * <p><b>Note:</b> BLOB values will never be quoted.</p>
      *
      * <p>Defaults to "not set"</p>
      *
@@ -575,6 +590,7 @@ public class SQLExec extends JDBCTask {
      * Load the sql file and then execute it
      * @throws BuildException on error.
      */
+    @Override
     public void execute() throws BuildException {
         Vector savedTransaction = (Vector) transactions.clone();
         String savedSqlCommand = sqlCommand;
@@ -597,9 +613,7 @@ public class SQLExec extends JDBCTask {
 
             if (resources != null) {
                 // deal with the resources
-                Iterator iter = resources.iterator();
-                while (iter.hasNext()) {
-                    Resource r = (Resource) iter.next();
+                for (Resource r : resources) {
                     // Make a transaction for each resource
                     Transaction t = createTransaction();
                     t.setSrcResource(r);
@@ -623,13 +637,13 @@ public class SQLExec extends JDBCTask {
                         log("Opening PrintStream to output Resource " + output, Project.MSG_VERBOSE);
                         OutputStream os = null;
                         FileProvider fp =
-                            (FileProvider) output.as(FileProvider.class);
+                            output.as(FileProvider.class);
                         if (fp != null) {
                             os = new FileOutputStream(fp.getFile(), append);
                         } else {
                             if (append) {
                                 Appendable a =
-                                    (Appendable) output.as(Appendable.class);
+                                    output.as(Appendable.class);
                                 if (a != null) {
                                     os = a.getAppendOutputStream();
                                 }
@@ -643,7 +657,12 @@ public class SQLExec extends JDBCTask {
                                 }
                             }
                         }
-                        out = new PrintStream(new BufferedOutputStream(os));
+                        if (outputEncoding != null) {
+                            out = new PrintStream(new BufferedOutputStream(os),
+                                                  false, outputEncoding);
+                        } else {
+                            out = new PrintStream(new BufferedOutputStream(os));
+                        }
                     }
 
                     // Process all transactions
@@ -833,6 +852,7 @@ public class SQLExec extends JDBCTask {
      * @param out the place to print results
      * @throws SQLException on SQL problems.
      */
+    @Deprecated
     protected void printResults(PrintStream out) throws SQLException {
         ResultSet rs = getStatement().getResultSet();
         try {
@@ -937,6 +957,7 @@ public class SQLExec extends JDBCTask {
      * <p>returns null if the connection does not connect to the
      * expected RDBMS.</p>
      */
+    @Override
     protected Connection getConnection() {
         if (conn == null) {
             conn = super.getConnection();
@@ -964,13 +985,14 @@ public class SQLExec extends JDBCTask {
 
         return statement;
     }
-        
+
     /**
      * The action a task should perform on an error,
      * one of "continue", "stop" and "abort"
      */
     public static class OnError extends EnumeratedAttribute {
         /** @return the enumerated values */
+        @Override
         public String[] getValues() {
             return new String[] {"continue", "stop", "abort"};
         }
@@ -1030,7 +1052,7 @@ public class SQLExec extends JDBCTask {
                 throw new BuildException("only single argument resource "
                                          + "collections are supported.");
             }
-            setSrcResource((Resource) a.iterator().next());
+            setSrcResource(a.iterator().next());
         }
 
         /**

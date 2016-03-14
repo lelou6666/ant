@@ -23,24 +23,24 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Iterator;
 import java.util.Locale;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.types.Mapper;
-import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.FileList;
+import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Mapper;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Touchable;
 import org.apache.tools.ant.types.resources.Union;
-import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.FileNameMapper;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Touch a file and/or fileset(s) and/or filelist(s);
@@ -296,10 +296,8 @@ public class Touch extends Task {
             return;
         }
         // deal with the resource collections
-        Iterator iter = resources.iterator();
-        while (iter.hasNext()) {
-            Resource r = (Resource) iter.next();
-            Touchable t = (Touchable) r.as(Touchable.class);
+        for (Resource r : resources) {
+            Touchable t = r.as(Touchable.class);
             if (t == null) {
                 throw new BuildException("Can't touch " + r);
             }
@@ -309,7 +307,8 @@ public class Touch extends Task {
         // deal with filesets in a special way since the task
         // originally also used the directories and Union won't return
         // them.
-        for (int i = 0; i < filesets.size(); i++) {
+        final int size = filesets.size();
+        for (int i = 0; i < size; i++) {
             FileSet fs = (FileSet) filesets.elementAt(i);
             DirectoryScanner ds = fs.getDirectoryScanner(getProject());
             File fromDir = fs.getDir(getProject());
@@ -340,12 +339,12 @@ public class Touch extends Task {
 
     private void touch(Resource r, long defaultTimestamp) {
         if (fileNameMapper == null) {
-            FileProvider fp = (FileProvider) r.as(FileProvider.class);
+            FileProvider fp = r.as(FileProvider.class);
             if (fp != null) {
                 // use this to create file and deal with non-writable files
                 touch(fp.getFile(), defaultTimestamp);
             } else {
-                ((Touchable) r.as(Touchable.class)).touch(defaultTimestamp);
+                r.as(Touchable.class).touch(defaultTimestamp);
             }
         } else {
             String[] mapped = fileNameMapper.mapFileName(r.getName());

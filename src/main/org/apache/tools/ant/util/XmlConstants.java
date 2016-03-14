@@ -27,6 +27,10 @@ package org.apache.tools.ant.util;
  */
 
 public class XmlConstants {
+
+    private XmlConstants() {
+    }
+
     /** property for location of xml schema */
     public static final String PROPERTY_SCHEMA_LOCATION =
             "http://apache.org/xml/properties/schema/external-schemaLocation";
@@ -55,7 +59,7 @@ public class XmlConstants {
     /** the sax external entities feature */
     public static final String FEATURE_EXTERNAL_ENTITIES =
             "http://xml.org/sax/features/external-general-entities";
-    /** the apache.org/xml disalllow doctype decl feature */
+    /** the apache.org/xml disallow doctype decl feature */
     public static final String FEATURE_DISALLOW_DTD =
             "http://apache.org/xml/features/disallow-doctype-decl";
 }

@@ -20,9 +20,11 @@ package org.apache.tools.ant.taskdefs;
 import java.io.File;
 import java.io.IOException;
 import java.util.Hashtable;
-import javax.xml.parsers.DocumentBuilderFactory;
+
 import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Path;
@@ -37,8 +39,8 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 import org.xml.sax.EntityResolver;
+import org.xml.sax.SAXException;
 
 /**
  * Loads property values from a valid XML file, generating the
@@ -244,7 +246,7 @@ public class XmlProperty extends org.apache.tools.ant.Task {
               DocumentBuilder builder = factory.newDocumentBuilder();
               builder.setEntityResolver(getEntityResolver());
               Document document = null;
-              FileProvider fp = (FileProvider) src.as(FileProvider.class);
+              FileProvider fp = src.as(FileProvider.class);
               if (fp != null) {
                   document = builder.parse(fp.getFile());
               } else {
@@ -591,7 +593,7 @@ public class XmlProperty extends org.apache.tools.ant.Task {
             throw new BuildException(
                     "only single argument resource collections are supported as archives");
         }
-        setSrcResource((Resource) a.iterator().next());
+        setSrcResource(a.iterator().next());
     }
 
     /**
@@ -649,7 +651,7 @@ public class XmlProperty extends org.apache.tools.ant.Task {
     /**
      * Include the semantic attribute name as part of the property name.
      * Ignored if semanticAttributes is not set to true.
-     * @param includeSemanticAttribute if true include the sematic attribute
+     * @param includeSemanticAttribute if true include the semantic attribute
      *                                 name.
      */
     public void setIncludeSemanticAttribute(boolean includeSemanticAttribute) {
@@ -670,7 +672,7 @@ public class XmlProperty extends org.apache.tools.ant.Task {
      * @return the file attribute.
      */
     protected File getFile () {
-        FileProvider fp = (FileProvider) src.as(FileProvider.class);
+        FileProvider fp = src.as(FileProvider.class);
         return fp != null ? fp.getFile() : null;
     }
 
@@ -681,7 +683,7 @@ public class XmlProperty extends org.apache.tools.ant.Task {
         // delegate this way around to support subclasses that
         // overwrite getFile
         File f = getFile();
-        FileProvider fp = (FileProvider) src.as(FileProvider.class);
+        FileProvider fp = src.as(FileProvider.class);
         return f == null ? src : fp != null
                 && fp.getFile().equals(f) ? src : new FileResource(f);
     }

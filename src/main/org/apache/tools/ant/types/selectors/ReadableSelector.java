@@ -19,6 +19,7 @@
 package org.apache.tools.ant.types.selectors;
 
 import java.io.File;
+
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.selectors.ResourceSelector;
@@ -26,7 +27,7 @@ import org.apache.tools.ant.types.resources.selectors.ResourceSelector;
 /**
  * A selector that selects readable files.
  *
- * <p>Readable is definied in terms of java.io.File#canRead, this
+ * <p>Readable is defined in terms of java.io.File#canRead, this
  * means the selector will accept any file that exists and is readable
  * by the application.</p>
  *
@@ -39,7 +40,7 @@ public class ReadableSelector implements FileSelector, ResourceSelector {
     }
 
     public boolean isSelected(Resource r) {
-        FileProvider fp = (FileProvider) r.as(FileProvider.class);
+        FileProvider fp = r.as(FileProvider.class);
         if (fp != null) {
             return isSelected(null, null, fp.getFile());
         }

@@ -21,6 +21,7 @@ import java.io.File;
 import java.util.Iterator;
 import java.util.Vector;
 import java.util.jar.Manifest;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 
@@ -95,7 +96,7 @@ public class JarLibAvailableTask extends Task {
     /**
      * Execute the task.
      *
-     * @throws BuildException if somethign goes wrong.
+     * @throws BuildException if something goes wrong.
      */
     public void execute() throws BuildException {
         validate();

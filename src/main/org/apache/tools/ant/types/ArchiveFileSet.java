@@ -20,11 +20,12 @@ package org.apache.tools.ant.types;
 import java.io.File;
 import java.util.Iterator;
 import java.util.Stack;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.FileProvider;
+import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.zip.UnixStat;
 
 /**
@@ -71,13 +72,15 @@ public abstract class ArchiveFileSet extends FileSet {
 
     private boolean errorOnMissingArchive = true;
 
+    private String encoding = null;
+
     /** Constructor for ArchiveFileSet */
     public ArchiveFileSet() {
         super();
     }
 
     /**
-     * Constructor using a fileset arguement.
+     * Constructor using a fileset argument.
      * @param fileset the fileset to use
      */
     protected ArchiveFileSet(FileSet fileset) {
@@ -85,7 +88,7 @@ public abstract class ArchiveFileSet extends FileSet {
     }
 
     /**
-     * Constructor using a archive fileset arguement.
+     * Constructor using a archive fileset argument.
      * @param fileset the archivefileset to use
      */
     protected ArchiveFileSet(ArchiveFileSet fileset) {
@@ -99,6 +102,7 @@ public abstract class ArchiveFileSet extends FileSet {
         fileModeHasBeenSet = fileset.fileModeHasBeenSet;
         dirModeHasBeenSet = fileset.dirModeHasBeenSet;
         errorOnMissingArchive = fileset.errorOnMissingArchive;
+        encoding = fileset.encoding;
     }
 
     /**
@@ -126,7 +130,7 @@ public abstract class ArchiveFileSet extends FileSet {
             throw new BuildException("only single argument resource collections"
                                      + " are supported as archives");
         }
-        setSrcResource((Resource) a.iterator().next());
+        setSrcResource(a.iterator().next());
     }
 
     /**
@@ -188,7 +192,7 @@ public abstract class ArchiveFileSet extends FileSet {
         }
         dieOnCircularReference();
         if (src != null) {
-            FileProvider fp = (FileProvider) src.as(FileProvider.class);
+            FileProvider fp = src.as(FileProvider.class);
             if (fp != null) {
                 return fp.getFile();
             }
@@ -200,13 +204,14 @@ public abstract class ArchiveFileSet extends FileSet {
      * Performs the check for circular references and returns the
      * referenced object.
      * This is an override which does not delegate to the superclass; instead it invokes
-     * {@link #getRef(Project)}, because that conains the special support for fileset
+     * {@link #getRef(Project)}, because that contains the special support for fileset
      * references, which can be handled by all ArchiveFileSets.
      * @param p the Ant Project instance against which to resolve references.
      * @return the dereferenced object.
      * @throws BuildException if the reference is invalid (circular ref, wrong class, etc).
      * @since Ant 1.8
      */
+    // TODO is the above true? AFAICT the calls look circular :/
     protected Object getCheckedRef(Project p) {
         return getRef(p);
     }
@@ -266,6 +271,33 @@ public abstract class ArchiveFileSet extends FileSet {
     }
 
     /**
+     * Set the encoding used for this ZipFileSet.
+     * @param enc encoding as String.
+     * @since Ant 1.9.5
+     */
+    public void setEncoding(String enc) {
+        checkAttributesAllowed();
+        this.encoding = enc;
+    }
+
+    /**
+     * Get the encoding used for this ZipFileSet.
+     * @return String encoding.
+     * @since Ant 1.9.5
+     */
+    public String getEncoding() {
+        if (isReference()) {
+            AbstractFileSet ref = getRef(getProject());
+            if (ref instanceof ArchiveFileSet) {
+                return ((ArchiveFileSet) ref).getEncoding();
+            } else {
+                return null;
+            }
+        }
+        return encoding;
+    }
+
+    /**
      * Creates a scanner for this type of archive.
      * @return the scanner.
      */
@@ -308,7 +340,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @return Iterator of Resources.
      * @since Ant 1.7
      */
-    public Iterator iterator() {
+    public Iterator<Resource> iterator() {
         if (isReference()) {
             return ((ResourceCollection) (getRef(getProject()))).iterator();
         }
@@ -475,7 +507,7 @@ public abstract class ArchiveFileSet extends FileSet {
      */
     public Object clone() {
         if (isReference()) {
-            return ((ArchiveFileSet) getRef(getProject())).clone();
+            return getCheckedRef(ArchiveFileSet.class, getDataTypeName(), getProject()).clone();
         }
         return super.clone();
     }
@@ -545,7 +577,7 @@ public abstract class ArchiveFileSet extends FileSet {
         }
     }
 
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;
