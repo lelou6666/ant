@@ -1,55 +1,19 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 1999 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant;
@@ -57,63 +21,90 @@ package org.apache.tools.ant;
 import java.util.EventListener;
 
 /**
- *  Classes that implement this interface will be notified when
- *  things happend during a build.
+ * Instances of classes that implement this interface can register
+ * to be notified when things happened during a build.
  *
- *  @see BuildEvent
- *  @see Project#addBuildListener(BuildListener)
+ * @see BuildEvent
+ * @see Project#addBuildListener(BuildListener)
+ *
  */
 public interface BuildListener extends EventListener {
 
     /**
-     *  Fired before any targets are started.
+     * Signals that a build has started. This event
+     * is fired before any targets have started.
+     *
+     * <p>This event is fired before the project instance is fully
+     * configured.  In particular no properties have been set and the
+     * project may not know its name or default target, yet.</p>
+     *
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
      */
-    public void buildStarted(BuildEvent event);
+    void buildStarted(BuildEvent event);
 
     /**
-     *  Fired after the last target has finished. This event
-     *  will still be thrown if an error occured during the build.
+     * Signals that the last target has finished. This event
+     * will still be fired if an error occurred during the build.
      *
-     *  @see BuildEvent#getException()
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
+     *
+     * @see BuildEvent#getException()
      */
-    public void buildFinished(BuildEvent event);
+    void buildFinished(BuildEvent event);
 
     /**
-     *  Fired when a target is started.
+     * Signals that a target is starting.
      *
-     *  @see BuildEvent#getTarget()
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
+     *
+     * @see BuildEvent#getTarget()
      */
-    public void targetStarted(BuildEvent event);
+    void targetStarted(BuildEvent event);
 
     /**
-     *  Fired when a target has finished. This event will
-     *  still be thrown if an error occured during the build.
+     * Signals that a target has finished. This event will
+     * still be fired if an error occurred during the build.
      *
-     *  @see BuildEvent#getException()
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
+     *
+     * @see BuildEvent#getException()
      */
-    public void targetFinished(BuildEvent event);
+    void targetFinished(BuildEvent event);
 
     /**
-     *  Fired when a task is started.
+     * Signals that a task is starting.
      *
-     *  @see BuildEvent#getTask()
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
+     *
+     * @see BuildEvent#getTask()
      */
-    public void taskStarted(BuildEvent event);
+    void taskStarted(BuildEvent event);
 
     /**
-     *  Fired when a task has finished. This event will still
-     *  be throw if an error occured during the build.
+     * Signals that a task has finished. This event will still
+     * be fired if an error occurred during the build.
      *
-     *  @see BuildEvent#getException()
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
+     *
+     * @see BuildEvent#getException()
      */
-    public void taskFinished(BuildEvent event);
+    void taskFinished(BuildEvent event);
 
     /**
-     *  Fired whenever a message is logged.
+     * Signals a message logging event.
      *
-     *  @see BuildEvent#getMessage()
-     *  @see BuildEvent#getPriority()
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
+     *
+     * @see BuildEvent#getMessage()
+     * @see BuildEvent#getException()
+     * @see BuildEvent#getPriority()
      */
-    public void messageLogged(BuildEvent event);
-
+    void messageLogged(BuildEvent event);
 }

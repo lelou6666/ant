@@ -1,78 +1,41 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.taskdefs.optional.javacc;
 
+import java.io.File;
+import java.io.InputStream;
+import java.util.Enumeration;
+import java.util.Hashtable;
+
+import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.taskdefs.Execute;
-import org.apache.tools.ant.taskdefs.LogStreamHandler;
 import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.CommandlineJava;
 import org.apache.tools.ant.types.Path;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Hashtable;
-import java.util.Enumeration;
+import org.apache.tools.ant.util.JavaEnvUtils;
 
 /**
- * Taskdef for the JavaCC compiler compiler.
+ * JavaCC compiler compiler task.
  *
- * @author thomas.haas@softwired-inc.com
- * @author Michael Saunders <a href="mailto:michael@amtec.com">michael@amtec.com</a>
  */
 public class JavaCC extends Task {
 
@@ -98,182 +61,511 @@ public class JavaCC extends Task {
     private static final String SANITY_CHECK           = "SANITY_CHECK";
     private static final String FORCE_LA_CHECK         = "FORCE_LA_CHECK";
     private static final String CACHE_TOKENS           = "CACHE_TOKENS";
+    private static final String KEEP_LINE_COLUMN       = "KEEP_LINE_COLUMN";
+    private static final String JDK_VERSION            = "JDK_VERSION";
 
     private final Hashtable optionalAttrs = new Hashtable();
 
     // required attributes
     private File outputDirectory = null;
-    private File target          = null;
+    private File targetFile      = null;
     private File javaccHome      = null;
 
     private CommandlineJava cmdl = new CommandlineJava();
 
+    protected static final int TASKDEF_TYPE_JAVACC = 1;
+    protected static final int TASKDEF_TYPE_JJTREE = 2;
+    protected static final int TASKDEF_TYPE_JJDOC = 3;
 
+    protected static final String[] ARCHIVE_LOCATIONS =
+        new String[] {
+        "JavaCC.zip",
+        "bin/lib/JavaCC.zip",
+        "bin/lib/javacc.jar",
+        "javacc.jar", // used by jpackage for JavaCC 3.x
+    };
+
+    protected static final int[] ARCHIVE_LOCATIONS_VS_MAJOR_VERSION =
+        new int[] {
+        1,
+        2,
+        3,
+        3,
+    };
+
+    protected static final String COM_PACKAGE = "COM.sun.labs.";
+    protected static final String COM_JAVACC_CLASS = "javacc.Main";
+    protected static final String COM_JJTREE_CLASS = "jjtree.Main";
+    protected static final String COM_JJDOC_CLASS = "jjdoc.JJDocMain";
+
+    protected static final String ORG_PACKAGE_3_0 = "org.netbeans.javacc.";
+    protected static final String ORG_PACKAGE_3_1 = "org.javacc.";
+    protected static final String ORG_JAVACC_CLASS = "parser.Main";
+    protected static final String ORG_JJTREE_CLASS = COM_JJTREE_CLASS;
+    protected static final String ORG_JJDOC_CLASS = COM_JJDOC_CLASS;
+
+    private String maxMemory = null;
+
+    /**
+     * Sets the LOOKAHEAD grammar option.
+     * @param lookahead an <code>int</code> value.
+     */
     public void setLookahead(int lookahead) {
         optionalAttrs.put(LOOKAHEAD, new Integer(lookahead));
     }
 
+    /**
+     * Sets the CHOICE_AMBIGUITY_CHECK grammar option.
+     * @param choiceAmbiguityCheck an <code>int</code> value.
+     */
     public void setChoiceambiguitycheck(int choiceAmbiguityCheck) {
         optionalAttrs.put(CHOICE_AMBIGUITY_CHECK, new Integer(choiceAmbiguityCheck));
     }
 
+    /**
+     * Sets the OTHER_AMBIGUITY_CHECK grammar option.
+     * @param otherAmbiguityCheck an <code>int</code> value.
+     */
     public void setOtherambiguityCheck(int otherAmbiguityCheck) {
         optionalAttrs.put(OTHER_AMBIGUITY_CHECK, new Integer(otherAmbiguityCheck));
     }
 
+    /**
+     * Sets the STATIC grammar option.
+     * @param staticParser a <code>boolean</code> value.
+     */
     public void setStatic(boolean staticParser) {
-        optionalAttrs.put(STATIC, new Boolean(staticParser));
+        optionalAttrs.put(STATIC, staticParser ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the DEBUG_PARSER grammar option.
+     * @param debugParser a <code>boolean</code> value.
+     */
     public void setDebugparser(boolean debugParser) {
-        optionalAttrs.put(DEBUG_PARSER, new Boolean(debugParser));
+        optionalAttrs.put(DEBUG_PARSER, debugParser ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the DEBUG_LOOKAHEAD grammar option.
+     * @param debugLookahead a <code>boolean</code> value.
+     */
     public void setDebuglookahead(boolean debugLookahead) {
-        optionalAttrs.put(DEBUG_LOOKAHEAD, new Boolean(debugLookahead));
+        optionalAttrs.put(DEBUG_LOOKAHEAD, debugLookahead ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the DEBUG_TOKEN_MANAGER grammar option.
+     * @param debugTokenManager a <code>boolean</code> value.
+     */
     public void setDebugtokenmanager(boolean debugTokenManager) {
-        optionalAttrs.put(DEBUG_TOKEN_MANAGER, new Boolean(debugTokenManager));
+        optionalAttrs.put(DEBUG_TOKEN_MANAGER, debugTokenManager ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the OPTIMIZE_TOKEN_MANAGER grammar option.
+     * @param optimizeTokenManager a <code>boolean</code> value.
+     */
     public void setOptimizetokenmanager(boolean optimizeTokenManager) {
-        optionalAttrs.put(OPTIMIZE_TOKEN_MANAGER, new Boolean(optimizeTokenManager));
+        optionalAttrs.put(OPTIMIZE_TOKEN_MANAGER,
+                          optimizeTokenManager ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the ERROR_REPORTING grammar option.
+     * @param errorReporting a <code>boolean</code> value.
+     */
     public void setErrorreporting(boolean errorReporting) {
-        optionalAttrs.put(ERROR_REPORTING, new Boolean(errorReporting));
+        optionalAttrs.put(ERROR_REPORTING, errorReporting ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the JAVA_UNICODE_ESCAPE grammar option.
+     * @param javaUnicodeEscape a <code>boolean</code> value.
+     */
     public void setJavaunicodeescape(boolean javaUnicodeEscape) {
-        optionalAttrs.put(JAVA_UNICODE_ESCAPE, new Boolean(javaUnicodeEscape));
+        optionalAttrs.put(JAVA_UNICODE_ESCAPE, javaUnicodeEscape ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the UNICODE_INPUT grammar option.
+     * @param unicodeInput a <code>boolean</code> value.
+     */
     public void setUnicodeinput(boolean unicodeInput) {
-        optionalAttrs.put(UNICODE_INPUT, new Boolean(unicodeInput));
+        optionalAttrs.put(UNICODE_INPUT, unicodeInput ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the IGNORE_CASE grammar option.
+     * @param ignoreCase a <code>boolean</code> value.
+     */
     public void setIgnorecase(boolean ignoreCase) {
-        optionalAttrs.put(IGNORE_CASE, new Boolean(ignoreCase));
+        optionalAttrs.put(IGNORE_CASE, ignoreCase ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the COMMON_TOKEN_ACTION grammar option.
+     * @param commonTokenAction a <code>boolean</code> value.
+     */
     public void setCommontokenaction(boolean commonTokenAction) {
-        optionalAttrs.put(COMMON_TOKEN_ACTION, new Boolean(commonTokenAction));
+        optionalAttrs.put(COMMON_TOKEN_ACTION, commonTokenAction ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the USER_TOKEN_MANAGER grammar option.
+     * @param userTokenManager a <code>boolean</code> value.
+     */
     public void setUsertokenmanager(boolean userTokenManager) {
-        optionalAttrs.put(USER_TOKEN_MANAGER, new Boolean(userTokenManager));
+        optionalAttrs.put(USER_TOKEN_MANAGER, userTokenManager ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the USER_CHAR_STREAM grammar option.
+     * @param userCharStream a <code>boolean</code> value.
+     */
     public void setUsercharstream(boolean userCharStream) {
-        optionalAttrs.put(USER_CHAR_STREAM, new Boolean(userCharStream));
+        optionalAttrs.put(USER_CHAR_STREAM, userCharStream ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the BUILD_PARSER grammar option.
+     * @param buildParser a <code>boolean</code> value.
+     */
     public void setBuildparser(boolean buildParser) {
-        optionalAttrs.put(BUILD_PARSER, new Boolean(buildParser));
+        optionalAttrs.put(BUILD_PARSER, buildParser ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the BUILD_TOKEN_MANAGER grammar option.
+     * @param buildTokenManager a <code>boolean</code> value.
+     */
     public void setBuildtokenmanager(boolean buildTokenManager) {
-        optionalAttrs.put(BUILD_TOKEN_MANAGER, new Boolean(buildTokenManager));
+        optionalAttrs.put(BUILD_TOKEN_MANAGER, buildTokenManager ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the SANITY_CHECK grammar option.
+     * @param sanityCheck a <code>boolean</code> value.
+     */
     public void setSanitycheck(boolean sanityCheck) {
-        optionalAttrs.put(SANITY_CHECK, new Boolean(sanityCheck));
+        optionalAttrs.put(SANITY_CHECK, sanityCheck ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the FORCE_LA_CHECK grammar option.
+     * @param forceLACheck a <code>boolean</code> value.
+     */
     public void setForcelacheck(boolean forceLACheck) {
-        optionalAttrs.put(FORCE_LA_CHECK, new Boolean(forceLACheck));
+        optionalAttrs.put(FORCE_LA_CHECK, forceLACheck ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the CACHE_TOKENS grammar option.
+     * @param cacheTokens a <code>boolean</code> value.
+     */
     public void setCachetokens(boolean cacheTokens) {
-        optionalAttrs.put(CACHE_TOKENS, new Boolean(cacheTokens));
+        optionalAttrs.put(CACHE_TOKENS, cacheTokens ? Boolean.TRUE : Boolean.FALSE);
     }
 
+    /**
+     * Sets the KEEP_LINE_COLUMN grammar option.
+     * @param keepLineColumn a <code>boolean</code> value.
+     */
+    public void setKeeplinecolumn(boolean keepLineColumn) {
+        optionalAttrs.put(KEEP_LINE_COLUMN, keepLineColumn ? Boolean.TRUE : Boolean.FALSE);
+    }
+
+    /**
+     * Sets the JDK_VERSION option.
+     * @param jdkVersion the version to use.
+     * @since Ant1.7
+     */
+    public void setJDKversion(String jdkVersion) {
+        optionalAttrs.put(JDK_VERSION, jdkVersion);
+    }
+
+    /**
+     * The directory to write the generated files to.
+     * If not set, the files are written to the directory
+     * containing the grammar file.
+     * @param outputDirectory the output directory.
+     */
     public void setOutputdirectory(File outputDirectory) {
         this.outputDirectory = outputDirectory;
     }
 
-    public void setTarget(File target) {
-        this.target = target;
+    /**
+     * The grammar file to process.
+     * @param targetFile the grammar file.
+     */
+    public void setTarget(File targetFile) {
+        this.targetFile = targetFile;
     }
 
+    /**
+     * The directory containing the JavaCC distribution.
+     * @param javaccHome the directory.
+     */
     public void setJavacchome(File javaccHome) {
         this.javaccHome = javaccHome;
     }
 
-    public JavaCC() {
-        cmdl.setVm("java");
-        cmdl.setClassname("COM.sun.labs.javacc.Main");
+    /**
+     * Corresponds -Xmx.
+     *
+     * @param max max memory parameter.
+     * @since Ant 1.8.3
+     */
+    public void setMaxmemory(String max) {
+        maxMemory = max;
     }
 
+    /**
+     * Constructor
+     */
+    public JavaCC() {
+        cmdl.setVm(JavaEnvUtils.getJreExecutable("java"));
+    }
+
+    /**
+     * Run the task.
+     * @throws BuildException on error.
+     */
     public void execute() throws BuildException {
 
         // load command line with optional attributes
         Enumeration iter = optionalAttrs.keys();
         while (iter.hasMoreElements()) {
-            String name  = (String)iter.nextElement();
+            String name  = (String) iter.nextElement();
             Object value = optionalAttrs.get(name);
-            cmdl.createArgument().setValue("-"+name+":"+value.toString());
+            cmdl.createArgument().setValue("-" + name + ":" + value.toString());
         }
 
         // check the target is a file
-        if (target == null || !target.isFile()) {
-            throw new BuildException("Invalid target: " + target);
+        if (targetFile == null || !targetFile.isFile()) {
+            throw new BuildException("Invalid target: " + targetFile);
         }
 
         // use the directory containing the target as the output directory
         if (outputDirectory == null) {
-            outputDirectory = new File(target.getParent());
-        }
-        else if (!outputDirectory.isDirectory()) {
+            outputDirectory = new File(targetFile.getParent());
+        } else if (!outputDirectory.isDirectory()) {
             throw new BuildException("Outputdir not a directory.");
         }
-        cmdl.createArgument().setValue(
-            "-OUTPUT_DIRECTORY:"+outputDirectory.getAbsolutePath());
+        cmdl.createArgument().setValue("-OUTPUT_DIRECTORY:"
+                                       + outputDirectory.getAbsolutePath());
 
         // determine if the generated java file is up-to-date
-        final File javaFile = getOutputJavaFile(outputDirectory, target);
-        if (javaFile.exists() && target.lastModified() < javaFile.lastModified()) {
-            log("Target is already built - skipping (" + target + ")", Project.MSG_VERBOSE);
+        final File javaFile = getOutputJavaFile(outputDirectory, targetFile);
+        if (javaFile.exists()
+            && targetFile.lastModified() < javaFile.lastModified()) {
+            log("Target is already built - skipping (" + targetFile + ")",
+                Project.MSG_VERBOSE);
             return;
         }
-        cmdl.createArgument().setValue(target.getAbsolutePath());
+        cmdl.createArgument().setValue(targetFile.getAbsolutePath());
 
-        if (javaccHome == null || !javaccHome.isDirectory()) {
-            throw new BuildException("Javacchome not set.");
-        }
-        final Path classpath = cmdl.createClasspath(project);
-        classpath.createPathElement().setPath(javaccHome.getAbsolutePath() +
-                                                  "/JavaCC.zip");
+        final Path classpath = cmdl.createClasspath(getProject());
+        final File javaccJar = JavaCC.getArchiveFile(javaccHome);
+        classpath.createPathElement().setPath(javaccJar.getAbsolutePath());
+        classpath.addJavaRuntime();
 
+        cmdl.setClassname(JavaCC.getMainClass(classpath,
+                                              JavaCC.TASKDEF_TYPE_JAVACC));
+
+        cmdl.setMaxmemory(maxMemory);
         final Commandline.Argument arg = cmdl.createVmArgument();
-        arg.setValue("-mx140M");
-        arg.setValue("-Dinstall.root="+javaccHome.getAbsolutePath());
+        arg.setValue("-Dinstall.root=" + javaccHome.getAbsolutePath());
 
         Execute.runCommand(this, cmdl.getCommandline());
     }
 
     /**
+     * Helper method to retrieve the path used to store the JavaCC.zip
+     * or javacc.jar which is different from versions.
+     *
+     * @param home the javacc home path directory.
+     * @throws BuildException thrown if the home directory is invalid
+     * or if the archive could not be found despite attempts to do so.
+     * @return the file object pointing to the JavaCC archive.
+     */
+    protected static File getArchiveFile(File home) throws BuildException {
+        return new File(home,
+                        ARCHIVE_LOCATIONS[getArchiveLocationIndex(home)]);
+    }
+
+    /**
+     * Helper method to retrieve main class which is different from versions.
+     * @param home the javacc home path directory.
+     * @param type the taskdef.
+     * @throws BuildException thrown if the home directory is invalid
+     * or if the archive could not be found despite attempts to do so.
+     * @return the main class for the taskdef.
+     */
+    protected static String getMainClass(File home, int type)
+        throws BuildException {
+
+        Path p = new Path(null);
+        p.createPathElement().setLocation(getArchiveFile(home));
+        p.addJavaRuntime();
+        return getMainClass(p, type);
+    }
+
+    /**
+     * Helper method to retrieve main class which is different from versions.
+     * @param path classpath to search in.
+     * @param type the taskdef.
+     * @throws BuildException thrown if the home directory is invalid
+     * or if the archive could not be found despite attempts to do so.
+     * @return the main class for the taskdef.
+     * @since Ant 1.7
+     */
+    protected static String getMainClass(Path path, int type)
+        throws BuildException {
+        String packagePrefix = null;
+        String mainClass = null;
+
+        AntClassLoader l = null;
+        try {
+            l = AntClassLoader.newAntClassLoader(null, null,
+                                                 path
+                                                 .concatSystemClasspath("ignore"),
+                                                 true);
+            String javaccClass = COM_PACKAGE + COM_JAVACC_CLASS;
+            InputStream is = l.getResourceAsStream(javaccClass.replace('.', '/')
+                                                   + ".class");
+            if (is != null) {
+                packagePrefix = COM_PACKAGE;
+                switch (type) {
+                case TASKDEF_TYPE_JAVACC:
+                    mainClass = COM_JAVACC_CLASS;
+
+                    break;
+
+                case TASKDEF_TYPE_JJTREE:
+                    mainClass = COM_JJTREE_CLASS;
+
+                    break;
+
+                case TASKDEF_TYPE_JJDOC:
+                    mainClass = COM_JJDOC_CLASS;
+
+                    break;
+                default:
+                    // Fall Through
+                }
+            } else {
+                javaccClass = ORG_PACKAGE_3_1 + ORG_JAVACC_CLASS;
+                is = l.getResourceAsStream(javaccClass.replace('.', '/')
+                                           + ".class");
+                if (is != null) {
+                    packagePrefix = ORG_PACKAGE_3_1;
+                } else {
+                    javaccClass = ORG_PACKAGE_3_0 + ORG_JAVACC_CLASS;
+                    is = l.getResourceAsStream(javaccClass.replace('.', '/')
+                                               + ".class");
+                    if (is != null) {
+                        packagePrefix = ORG_PACKAGE_3_0;
+                    }
+                }
+
+                if (is != null) {
+                    switch (type) {
+                    case TASKDEF_TYPE_JAVACC:
+                        mainClass = ORG_JAVACC_CLASS;
+
+                        break;
+
+                    case TASKDEF_TYPE_JJTREE:
+                        mainClass = ORG_JJTREE_CLASS;
+
+                        break;
+
+                    case TASKDEF_TYPE_JJDOC:
+                        mainClass = ORG_JJDOC_CLASS;
+
+                        break;
+                    default:
+                        // Fall Through
+                    }
+                }
+            }
+
+            if (packagePrefix == null) {
+                throw new BuildException("failed to load JavaCC");
+            }
+            if (mainClass == null) {
+                throw new BuildException("unknown task type " + type);
+            }
+            return packagePrefix + mainClass;
+        } finally {
+            if (l != null) {
+                l.cleanup();
+            }
+        }
+    }
+
+    /**
+     * Helper method to determine the archive location index.
+     *
+     * @param home the javacc home path directory.
+     * @throws BuildException thrown if the home directory is invalid
+     * or if the archive could not be found despite attempts to do so.
+     * @return the archive location index
+     */
+    private static int getArchiveLocationIndex(File home)
+        throws BuildException {
+
+        if (home == null || !home.isDirectory()) {
+            throw new BuildException("JavaCC home must be a valid directory.");
+        }
+
+        for (int i = 0; i < ARCHIVE_LOCATIONS.length; i++) {
+            File f = new File(home, ARCHIVE_LOCATIONS[i]);
+
+            if (f.exists()) {
+                return i;
+            }
+        }
+
+        throw new BuildException("Could not find a path to JavaCC.zip "
+                                 + "or javacc.jar from '" + home + "'.");
+    }
+
+    /**
+     * Helper method to determine the major version number of JavaCC.
+     *
+     * @param home the javacc home path directory.
+     * @throws BuildException thrown if the home directory is invalid
+     * or if the archive could not be found despite attempts to do so.
+     * @return a the major version number
+     */
+    protected static int getMajorVersionNumber(File home)
+        throws BuildException {
+
+        return
+            ARCHIVE_LOCATIONS_VS_MAJOR_VERSION[getArchiveLocationIndex(home)];
+    }
+
+    /**
      * Determines the output Java file to be generated by the given grammar
      * file.
-     * 
+     *
      */
-    private File getOutputJavaFile(File outputdir, File srcfile)
-    {
+    private File getOutputJavaFile(File outputdir, File srcfile) {
         String path = srcfile.getPath();
 
         // Extract file's base-name
         int startBasename = path.lastIndexOf(File.separator);
-        if ( startBasename != -1 ) {
-            path = path.substring(startBasename+1);
+        if (startBasename != -1) {
+            path = path.substring(startBasename + 1);
         }
 
         // Replace the file's extension with '.java'
         int startExtn = path.lastIndexOf('.');
         if (startExtn != -1) {
             path = path.substring(0, startExtn) + ".java";
-        }
-        else {
+        } else {
             path += ".java";
         }
 

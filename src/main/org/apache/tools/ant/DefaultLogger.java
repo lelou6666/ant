@@ -1,83 +1,89 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 1999 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.StringReader;
+import java.text.DateFormat;
+import java.util.Date;
+
+import org.apache.tools.ant.util.DateUtils;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.StringUtils;
 
 /**
- *  Writes build event to a PrintStream. Currently, it
- *  only writes which targets are being executed, and
- *  any messages that get logged.
+ * Writes build events to a PrintStream. Currently, it
+ * only writes which targets are being executed, and
+ * any messages that get logged.
+ *
  */
 public class DefaultLogger implements BuildLogger {
-    private static int LEFT_COLUMN_SIZE = 12;
+    /**
+     * Size of left-hand column for right-justified task name.
+     * @see #messageLogged(BuildEvent)
+     */
+    public static final int LEFT_COLUMN_SIZE = 12;
 
+    // CheckStyle:VisibilityModifier OFF - bc
+    /** PrintStream to write non-error messages to */
     protected PrintStream out;
-    protected PrintStream err;
-    protected int msgOutputLevel;
-    private long startTime = System.currentTimeMillis();
-	
-    protected static String lSep = System.getProperty("line.separator");
 
+    /** PrintStream to write error messages to */
+    protected PrintStream err;
+
+    /** Lowest level of message to write out */
+    protected int msgOutputLevel = Project.MSG_ERR;
+
+    /** Time of the start of the build */
+    private long startTime = System.currentTimeMillis();
+
+    // CheckStyle:ConstantNameCheck OFF - bc
+    /** Line separator */
+    protected static final String lSep = StringUtils.LINE_SEP;
+    // CheckStyle:ConstantNameCheck ON
+
+    /** Whether or not to use emacs-style output */
     protected boolean emacsMode = false;
+    // CheckStyle:VisibilityModifier ON
+
 
     /**
-     * Set the msgOutputLevel this logger is to respond to.
+     * Sole constructor.
+     */
+    public DefaultLogger() {
+    }
+
+    /**
+     * Sets the highest level of message this logger should respond to.
      *
-     * Only messages with a message level lower than or equal to the given level are 
-     * output to the log.
+     * Only messages with a message level lower than or equal to the
+     * given level should be written to the log.
+     * <p>
+     * Constants for the message levels are in the
+     * {@link Project Project} class. The order of the levels, from least
+     * to most verbose, is <code>MSG_ERR</code>, <code>MSG_WARN</code>,
+     * <code>MSG_INFO</code>, <code>MSG_VERBOSE</code>,
+     * <code>MSG_DEBUG</code>.
+     * <p>
+     * The default message level for DefaultLogger is Project.MSG_ERR.
      *
      * @param level the logging level for the logger.
      */
@@ -85,122 +91,290 @@ public class DefaultLogger implements BuildLogger {
         this.msgOutputLevel = level;
     }
 
-    
     /**
-     * Set the output stream to which this logger is to send its output.
+     * Sets the output stream to which this logger is to send its output.
      *
-     * @param output the output stream for the logger.
+     * @param output The output stream for the logger.
+     *               Must not be <code>null</code>.
      */
     public void setOutputPrintStream(PrintStream output) {
-        this.out = output;
+        this.out = new PrintStream(output, true);
     }
 
     /**
-     * Set the output stream to which this logger is to send error messages.
+     * Sets the output stream to which this logger is to send error messages.
      *
-     * @param err the error stream for the logger.
+     * @param err The error stream for the logger.
+     *            Must not be <code>null</code>.
      */
     public void setErrorPrintStream(PrintStream err) {
-        this.err = err;
+        this.err = new PrintStream(err, true);
     }
 
     /**
-     * Set this logger to produce emacs (and other editor) friendly output.
+     * Sets this logger to produce emacs (and other editor) friendly output.
      *
-     * @param emacsMode true if output is to be unadorned so that emacs and other
-     * editors can parse files names, etc.
+     * @param emacsMode <code>true</code> if output is to be unadorned so that
+     *                  emacs and other editors can parse files names, etc.
      */
     public void setEmacsMode(boolean emacsMode) {
         this.emacsMode = emacsMode;
     }
 
-
+    /**
+     * Responds to a build being started by just remembering the current time.
+     *
+     * @param event Ignored.
+     */
     public void buildStarted(BuildEvent event) {
         startTime = System.currentTimeMillis();
     }
 
+    static void throwableMessage(StringBuffer m, Throwable error, boolean verbose) {
+        while (error instanceof BuildException) { // #43398
+            Throwable cause = error.getCause();
+            if (cause == null) {
+                break;
+            }
+            String msg1 = error.toString();
+            String msg2 = cause.toString();
+            if (msg1.endsWith(msg2)) {
+                m.append(msg1.substring(0, msg1.length() - msg2.length()));
+                error = cause;
+            } else {
+                break;
+            }
+        }
+        if (verbose || !(error instanceof BuildException)) {
+            m.append(StringUtils.getStackTrace(error));
+        } else {
+            m.append(error).append(lSep);
+        }
+    }
+
     /**
-     *  Prints whether the build succeeded or failed, and
-     *  any errors the occured during the build.
+     * Prints whether the build succeeded or failed,
+     * any errors the occurred during the build, and
+     * how long the build took.
+     *
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
      */
     public void buildFinished(BuildEvent event) {
         Throwable error = event.getException();
-
+        StringBuffer message = new StringBuffer();
         if (error == null) {
-            out.println(lSep + "BUILD SUCCESSFUL");
+            message.append(StringUtils.LINE_SEP);
+            message.append(getBuildSuccessfulMessage());
+        } else {
+            message.append(StringUtils.LINE_SEP);
+            message.append(getBuildFailedMessage());
+            message.append(StringUtils.LINE_SEP);
+            throwableMessage(message, error, Project.MSG_VERBOSE <= msgOutputLevel);
         }
-        else {
-            err.println(lSep + "BUILD FAILED" + lSep);
+        message.append(StringUtils.LINE_SEP);
+        message.append("Total time: ");
+        message.append(formatTime(System.currentTimeMillis() - startTime));
 
-            if (error instanceof BuildException) {
-                err.println(error.toString());
-
-                Throwable nested = ((BuildException)error).getException();
-                if (nested != null) {
-                    nested.printStackTrace(err);
-                }
-            }
-            else {
-                error.printStackTrace(err);
-            }
+        String msg = message.toString();
+        if (error == null) {
+            printMessage(msg, out, Project.MSG_VERBOSE);
+        } else {
+            printMessage(msg, err, Project.MSG_ERR);
         }
-
-        out.println(lSep + "Total time: " + formatTime(System.currentTimeMillis() - startTime));
+        log(msg);
     }
 
+    /**
+     * This is an override point: the message that indicates whether a build failed.
+     * Subclasses can change/enhance the message.
+     * @return The classic "BUILD FAILED"
+     */
+    protected String getBuildFailedMessage() {
+        return "BUILD FAILED";
+    }
+
+    /**
+     * This is an override point: the message that indicates that a build succeeded.
+     * Subclasses can change/enhance the message.
+     * @return The classic "BUILD SUCCESSFUL"
+     */
+    protected String getBuildSuccessfulMessage() {
+        return "BUILD SUCCESSFUL";
+    }
+
+    /**
+     * Logs a message to say that the target has started if this
+     * logger allows information-level messages.
+     *
+     * @param event An event with any relevant extra information.
+     *              Must not be <code>null</code>.
+      */
     public void targetStarted(BuildEvent event) {
-        if (msgOutputLevel <= Project.MSG_INFO) {
-            out.println(lSep + event.getTarget().getName() + ":");
+        if (Project.MSG_INFO <= msgOutputLevel
+            && !event.getTarget().getName().equals("")) {
+            String msg = StringUtils.LINE_SEP
+                + event.getTarget().getName() + ":";
+            printMessage(msg, out, event.getPriority());
+            log(msg);
         }
     }
 
+    /**
+     * No-op implementation.
+     *
+     * @param event Ignored.
+     */
     public void targetFinished(BuildEvent event) {
     }
 
-    public void taskStarted(BuildEvent event) {}
-    public void taskFinished(BuildEvent event) {}
+    /**
+     * No-op implementation.
+     *
+     * @param event Ignored.
+     */
+    public void taskStarted(BuildEvent event) {
+    }
 
+    /**
+     * No-op implementation.
+     *
+     * @param event Ignored.
+     */
+    public void taskFinished(BuildEvent event) {
+    }
+
+    /**
+     * Logs a message, if the priority is suitable.
+     * In non-emacs mode, task level messages are prefixed by the
+     * task name which is right-justified.
+     *
+     * @param event A BuildEvent containing message information.
+     *              Must not be <code>null</code>.
+     */
     public void messageLogged(BuildEvent event) {
-
-        PrintStream logTo = event.getPriority() == Project.MSG_ERR ? err : out;
-
+        int priority = event.getPriority();
         // Filter out messages based on priority
-        if (event.getPriority() <= msgOutputLevel) {
+        if (priority <= msgOutputLevel) {
 
-            // Print out the name of the task if we're in one
-            if (event.getTask() != null) {
+            StringBuffer message = new StringBuffer();
+            if (event.getTask() != null && !emacsMode) {
+                // Print out the name of the task if we're in one
                 String name = event.getTask().getTaskName();
-
-                if (!emacsMode) {
-                    String msg = "[" + name + "] ";
-                    for (int i = 0; i < (LEFT_COLUMN_SIZE - msg.length()); i++) {
-                        logTo.print(" ");
-                    }
-                    logTo.print(msg);
+                String label = "[" + name + "] ";
+                int size = LEFT_COLUMN_SIZE - label.length();
+                StringBuffer tmp = new StringBuffer();
+                for (int i = 0; i < size; i++) {
+                    tmp.append(" ");
                 }
+                tmp.append(label);
+                label = tmp.toString();
+
+                BufferedReader r = null;
+                try {
+                    r = new BufferedReader(
+                            new StringReader(event.getMessage()));
+                    String line = r.readLine();
+                    boolean first = true;
+                    do {
+                        if (first) {
+                            if (line == null) {
+                                message.append(label);
+                                break;
+                            }
+                        } else {
+                            message.append(StringUtils.LINE_SEP);
+                        }
+                        first = false;
+                        message.append(label).append(line);
+                        line = r.readLine();
+                    } while (line != null);
+                } catch (IOException e) {
+                    // shouldn't be possible
+                    message.append(label).append(event.getMessage());
+                } finally {
+                    if (r != null) {
+                        FileUtils.close(r);
+                    }
+                }
+
+            } else {
+                //emacs mode or there is no task
+                message.append(event.getMessage());
+            }
+            Throwable ex = event.getException();
+            if (Project.MSG_DEBUG <= msgOutputLevel && ex != null) {
+                    message.append(StringUtils.getStackTrace(ex));
             }
 
-            // Print the message
-            logTo.println(event.getMessage());
+            String msg = message.toString();
+            if (priority != Project.MSG_ERR) {
+                printMessage(msg, out, priority);
+            } else {
+                printMessage(msg, err, priority);
+            }
+            log(msg);
         }
     }
 
-    protected static String formatTime(long millis) {
-        long seconds = millis / 1000;
-        long minutes = seconds / 60;
-
-
-        if (minutes > 0) {
-            return Long.toString(minutes) + " minute"
-                + (minutes == 1 ? " " : "s ")
-                + Long.toString(seconds%60) + " second"
-                + (seconds%60 == 1 ? "" : "s");
-        }
-        else {
-            return Long.toString(seconds) + " second"
-                + (seconds%60 == 1 ? "" : "s");
-        }
-
+    /**
+     * Convenience method to format a specified length of time.
+     *
+     * @param millis Length of time to format, in milliseconds.
+     *
+     * @return the time as a formatted string.
+     *
+     * @see DateUtils#formatElapsedTime(long)
+     */
+    protected static String formatTime(final long millis) {
+        return DateUtils.formatElapsedTime(millis);
     }
 
+    /**
+     * Prints a message to a PrintStream.
+     *
+     * @param message  The message to print.
+     *                 Should not be <code>null</code>.
+     * @param stream   A PrintStream to print the message to.
+     *                 Must not be <code>null</code>.
+     * @param priority The priority of the message.
+     *                 (Ignored in this implementation.)
+     */
+    protected void printMessage(final String message,
+                                final PrintStream stream,
+                                final int priority) {
+        stream.println(message);
+    }
+
+    /**
+     * Empty implementation which allows subclasses to receive the
+     * same output that is generated here.
+     *
+     * @param message Message being logged. Should not be <code>null</code>.
+     */
+    protected void log(String message) {
+    }
+
+    /**
+     * Get the current time.
+     * @return the current time as a formatted string.
+     * @since Ant1.7.1
+     */
+    protected String getTimestamp() {
+        Date date = new Date(System.currentTimeMillis());
+        DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+        String finishTime = formatter.format(date);
+        return finishTime;
+    }
+
+    /**
+     * Get the project name or null
+     * @param event the event
+     * @return the project that raised this event
+     * @since Ant1.7.1
+     */
+    protected String extractProjectName(BuildEvent event) {
+        Project project = event.getProject();
+        return (project != null) ? project.getName() : null;
+    }
 }

@@ -1,219 +1,645 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 1999 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
+
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.*;
-import org.apache.tools.ant.types.Commandline;
 import java.io.File;
+import java.io.IOException;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.taskdefs.condition.IsSigned;
+import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.resources.FileProvider;
+import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.util.FileNameMapper;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.IdentityMapper;
+import org.apache.tools.ant.util.ResourceUtils;
 
 /**
- * Sign a archive.
- * 
- * @author Peter Donald <a href="mailto:donaldp@mad.scientist.com">donaldp@mad.scientist.com</a>
+ * Signs JAR or ZIP files with the javasign command line tool. The tool detailed
+ * dependency checking: files are only signed if they are not signed. The
+ * <tt>signjar</tt> attribute can point to the file to generate; if this file
+ * exists then its modification date is used as a cue as to whether to resign
+ * any JAR file.
+ *
+ * Timestamp driven signing is based on the unstable and inadequately documented
+ * information in the Java1.5 docs
+ * @see <a href="http://java.sun.com/j2se/1.5.0/docs/guide/security/time-of-signing-beta1.html">
+ * beta documentation</a>
+ * @ant.task category="java"
+ * @since Ant 1.1
  */
-public class SignJar extends Task {
+public class SignJar extends AbstractJarSignerTask {
+    // CheckStyle:VisibilityModifier OFF - bc
+
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
-     * The name of the jar file.
+     * name to a signature file
      */
-    protected String jar;
-
-    /**
-     * The alias of signer.
-     */
-    protected String alias;
-
-    /**
-     * The name of keystore file.
-     */
-    protected String keystore;
-    protected String storepass;
-    protected String storetype;
-    protected String keypass;
     protected String sigfile;
-    protected String signedjar;
-    protected boolean verbose;
+
+    /**
+     * name of a single jar
+     */
+    protected File signedjar;
+
+    /**
+     * flag for internal sf signing
+     */
     protected boolean internalsf;
+
+    /**
+     * sign sections only?
+     */
     protected boolean sectionsonly;
 
-    public void setJar(final String jar) {
-        this.jar = jar;
-    } 
+    /**
+     * flag to preserve timestamp on modified files
+     */
+    private boolean preserveLastModified;
 
-    public void setAlias(final String alias) {
-        this.alias = alias;
-    } 
+    /**
+     * Whether to assume a jar which has an appropriate .SF file in is already
+     * signed.
+     */
+    protected boolean lazy;
 
-    public void setKeystore(final String keystore) {
-        this.keystore = keystore;
-    } 
+    /**
+     * the output directory when using paths.
+     */
+    protected File destDir;
 
-    public void setStorepass(final String storepass) {
-        this.storepass = storepass;
-    } 
+    /**
+     * mapper for todir work
+     */
+    private FileNameMapper mapper;
 
-    public void setStoretype(final String storetype) {
-        this.storetype = storetype;
-    } 
+    /**
+     * URL for a tsa; null implies no tsa support
+     */
+    protected String tsaurl;
 
-    public void setKeypass(final String keypass) {
-        this.keypass = keypass;
-    } 
+    /**
+     * Proxy host to be used when connecting to TSA server
+     */
+    protected String tsaproxyhost;
 
+    /**
+     * Proxy port to be used when connecting to TSA server
+     */
+    protected String tsaproxyport;
+
+    /**
+     * alias for the TSA in the keystore
+     */
+    protected String tsacert;
+
+    /**
+     * force signing even if the jar is already signed.
+     */
+    private boolean force = false;
+
+    /**
+     * signature algorithm
+     */
+    private String sigAlg;
+
+    /**
+     * digest algorithm
+     */
+    private String digestAlg;
+
+    /**
+     * error string for unit test verification: {@value}
+     */
+    public static final String ERROR_TODIR_AND_SIGNEDJAR
+            = "'destdir' and 'signedjar' cannot both be set";
+    /**
+     * error string for unit test verification: {@value}
+     */
+    public static final String ERROR_TOO_MANY_MAPPERS = "Too many mappers";
+    /**
+     * error string for unit test verification {@value}
+     */
+    public static final String ERROR_SIGNEDJAR_AND_PATHS
+        = "You cannot specify the signed JAR when using paths or filesets";
+    /**
+     * error string for unit test verification: {@value}
+     */
+    public static final String ERROR_BAD_MAP = "Cannot map source file to anything sensible: ";
+    /**
+     * error string for unit test verification: {@value}
+     */
+    public static final String ERROR_MAPPER_WITHOUT_DEST
+        = "The destDir attribute is required if a mapper is set";
+    /**
+     * error string for unit test verification: {@value}
+     */
+    public static final String ERROR_NO_ALIAS = "alias attribute must be set";
+    /**
+     * error string for unit test verification: {@value}
+     */
+    public static final String ERROR_NO_STOREPASS = "storepass attribute must be set";
+    // CheckStyle:VisibilityModifier ON
+
+    /**
+     * name of .SF/.DSA file; optional
+     *
+     * @param sigfile the name of the .SF/.DSA file
+     */
     public void setSigfile(final String sigfile) {
         this.sigfile = sigfile;
-    } 
+    }
 
-    public void setSignedjar(final String signedjar) {
+    /**
+     * name of signed JAR file; optional
+     *
+     * @param signedjar the name of the signed jar file
+     */
+    public void setSignedjar(final File signedjar) {
         this.signedjar = signedjar;
-    } 
+    }
 
-    public void setVerbose(final String verbose) {
-        this.verbose = project.toBoolean(verbose);
-    } 
+    /**
+     * Flag to include the .SF file inside the signature; optional; default
+     * false
+     *
+     * @param internalsf if true include the .SF file inside the signature
+     */
+    public void setInternalsf(final boolean internalsf) {
+        this.internalsf = internalsf;
+    }
 
-    public void setInternalsf(final String internalsf) {
-        this.internalsf = project.toBoolean(internalsf);
-    } 
+    /**
+     * flag to compute hash of entire manifest; optional, default false
+     *
+     * @param sectionsonly flag to compute hash of entire manifest
+     */
+    public void setSectionsonly(final boolean sectionsonly) {
+        this.sectionsonly = sectionsonly;
+    }
 
-    public void setSectionsonly(final String sectionsonly) {
-        this.sectionsonly = project.toBoolean(sectionsonly);
-    } 
+    /**
+     * flag to control whether the presence of a signature file means a JAR is
+     * signed; optional, default false
+     *
+     * @param lazy flag to control whether the presence of a signature
+     */
+    public void setLazy(final boolean lazy) {
+        this.lazy = lazy;
+    }
 
+    /**
+     * Optionally sets the output directory to be used.
+     *
+     * @param destDir the directory in which to place signed jars
+     * @since Ant 1.7
+     */
+    public void setDestDir(File destDir) {
+        this.destDir = destDir;
+    }
+
+
+    /**
+     * add a mapper to determine file naming policy. Only used with toDir
+     * processing.
+     *
+     * @param newMapper the mapper to add.
+     * @since Ant 1.7
+     */
+    public void add(FileNameMapper newMapper) {
+        if (mapper != null) {
+            throw new BuildException(ERROR_TOO_MANY_MAPPERS);
+        }
+        mapper = newMapper;
+    }
+
+    /**
+     * get the active mapper; may be null
+     * @return mapper or null
+     * @since Ant 1.7
+     */
+    public FileNameMapper getMapper() {
+        return mapper;
+    }
+
+    /**
+     * get the -tsaurl url
+     * @return url or null
+     * @since Ant 1.7
+     */
+    public String getTsaurl() {
+        return tsaurl;
+    }
+
+    /**
+     *
+     * @param tsaurl the tsa url.
+     * @since Ant 1.7
+     */
+    public void setTsaurl(String tsaurl) {
+        this.tsaurl = tsaurl;
+    }
+
+    /**
+     * Get the proxy host to be used when connecting to the TSA url
+     * @return url or null
+     * @since Ant 1.9.5
+     */
+    public String getTsaproxyhost() {
+        return tsaproxyhost;
+    }
+
+    /**
+     *
+     * @param tsaproxyhost the proxy host to be used when connecting to the TSA.
+     * @since Ant 1.9.5
+     */
+    public void setTsaproxyhost(String tsaproxyhost) {
+        this.tsaproxyhost = tsaproxyhost;
+    }
+
+    /**
+     * Get the proxy host to be used when connecting to the TSA url
+     * @return url or null
+     * @since Ant 1.9.5
+     */
+    public String getTsaproxyport() {
+        return tsaproxyport;
+    }
+
+    /**
+     *
+     * @param tsaproxyport the proxy port to be used when connecting to the TSA.
+     * @since Ant 1.9.5
+     */
+    public void setTsaproxyport(String tsaproxyport) {
+        this.tsaproxyport = tsaproxyport;
+    }
+
+    /**
+     * get the -tsacert option
+     * @since Ant 1.7
+     * @return a certificate alias or null
+     */
+    public String getTsacert() {
+        return tsacert;
+    }
+
+    /**
+     * set the alias in the keystore of the TSA to use;
+     * @param tsacert the cert alias.
+     */
+    public void setTsacert(String tsacert) {
+        this.tsacert = tsacert;
+    }
+
+    /**
+     * Whether to force signing of a jar even it is already signed.
+     * @since Ant 1.8.0
+     */
+    public void setForce(boolean b) {
+        force = b;
+    }
+
+    /**
+     * Should the task force signing of a jar even it is already
+     * signed?
+     * @since Ant 1.8.0
+     */
+    public boolean isForce() {
+        return force;
+    }
+
+    /**
+     * Signature Algorithm; optional
+     *
+     * @param sigAlg the signature algorithm
+     */
+    public void setSigAlg(String sigAlg) {
+        this.sigAlg = sigAlg;
+    }
+
+    /**
+     * Signature Algorithm; optional
+     */
+    public String getSigAlg() {
+        return sigAlg;
+    }
+
+    /**
+     * Digest Algorithm; optional
+     *
+     * @param digestAlg the digest algorithm
+     */
+    public void setDigestAlg(String digestAlg) {
+        this.digestAlg = digestAlg;
+    }
+
+    /**
+     * Digest Algorithm; optional
+     */
+    public String getDigestAlg() {
+        return digestAlg;
+    }
+
+    /**
+     * sign the jar(s)
+     *
+     * @throws BuildException on errors
+     */
+    @Override
     public void execute() throws BuildException {
-        if (project.getJavaVersion().equals(Project.JAVA_1_1)) {
-            throw new BuildException("The signjar task is only available on JDK versions 1.2 or greater");
-        } 
+        //validation logic
+        final boolean hasJar = jar != null;
+        final boolean hasSignedJar = signedjar != null;
+        final boolean hasDestDir = destDir != null;
+        final boolean hasMapper = mapper != null;
 
-        if (null == jar) {
-            throw new BuildException("jar attribute must be set");
-        } 
-
+        if (!hasJar && !hasResources()) {
+            throw new BuildException(ERROR_NO_SOURCE);
+        }
         if (null == alias) {
-            throw new BuildException("alias attribute must be set");
-        } 
+            throw new BuildException(ERROR_NO_ALIAS);
+        }
 
         if (null == storepass) {
-            throw new BuildException("storepass attribute must be set");
-        } 
+            throw new BuildException(ERROR_NO_STOREPASS);
+        }
 
-        final StringBuffer sb = new StringBuffer();
+        if (hasDestDir && hasSignedJar) {
+            throw new BuildException(ERROR_TODIR_AND_SIGNEDJAR);
+        }
 
-        sb.append("jarsigner ");
 
-        if (null != keystore) {
-            sb.append("-keystore \"");
-            sb.append(keystore);
-            sb.append("\" ");
-        } 
+        if (hasResources() && hasSignedJar) {
+            throw new BuildException(ERROR_SIGNEDJAR_AND_PATHS);
+        }
 
-        if (null != storepass) {
-            sb.append("-storepass \"");
-            sb.append(storepass);
-            sb.append("\" ");
-        } 
+        //this isn't strictly needed, but by being fussy now,
+        //we can change implementation details later
+        if (!hasDestDir && hasMapper) {
+            throw new BuildException(ERROR_MAPPER_WITHOUT_DEST);
+        }
 
-        if (null != storetype) {
-            sb.append("-storetype \"");
-            sb.append(storetype);
-            sb.append("\" ");
-        } 
+        beginExecution();
 
-        if (null != keypass) {
-            sb.append("-keypass \"");
-            sb.append(keypass);
-            sb.append("\" ");
-        } 
 
+        try {
+            //special case single jar handling with signedjar attribute set
+            if (hasJar && hasSignedJar) {
+                // single jar processing
+                signOneJar(jar, signedjar);
+                //return here.
+                return;
+            }
+
+            //the rest of the method treats single jar like
+            //a nested path with one file
+
+            Path sources = createUnifiedSourcePath();
+            //set up our mapping policy
+            FileNameMapper destMapper;
+            if (hasMapper) {
+                destMapper = mapper;
+            } else {
+                //no mapper? use the identity policy
+                destMapper = new IdentityMapper();
+            }
+
+
+            //at this point the paths are set up with lists of files,
+            //and the mapper is ready to map from source dirs to dest files
+            //now we iterate through every JAR giving source and dest names
+            // deal with the paths
+            for (Resource r : sources) {
+                FileResource fr = ResourceUtils
+                    .asFileResource(r.as(FileProvider.class));
+
+                //calculate our destination directory; it is either the destDir
+                //attribute, or the base dir of the fileset (for in situ updates)
+                File toDir = hasDestDir ? destDir : fr.getBaseDir();
+
+                //determine the destination filename via the mapper
+                String[] destFilenames = destMapper.mapFileName(fr.getName());
+                if (destFilenames == null || destFilenames.length != 1) {
+                    //we only like simple mappers.
+                    throw new BuildException(ERROR_BAD_MAP + fr.getFile());
+                }
+                File destFile = new File(toDir, destFilenames[0]);
+                signOneJar(fr.getFile(), destFile);
+            }
+        } finally {
+            endExecution();
+        }
+    }
+
+    /**
+     * Sign one jar.
+     * <p/>
+     * The signing only takes place if {@link #isUpToDate(File, File)} indicates
+     * that it is needed.
+     *
+     * @param jarSource source to sign
+     * @param jarTarget target; may be null
+     * @throws BuildException
+     */
+    private void signOneJar(File jarSource, File jarTarget)
+        throws BuildException {
+
+
+        File targetFile = jarTarget;
+        if (targetFile == null) {
+            targetFile = jarSource;
+        }
+        if (isUpToDate(jarSource, targetFile)) {
+            return;
+        }
+
+        long lastModified = jarSource.lastModified();
+        final ExecTask cmd = createJarSigner();
+
+        setCommonOptions(cmd);
+
+        bindToKeystore(cmd);
         if (null != sigfile) {
-            sb.append("-sigfile \"");
-            sb.append(sigfile);
-            sb.append("\" ");
-        } 
+            addValue(cmd, "-sigfile");
+            String value = this.sigfile;
+            addValue(cmd, value);
+        }
 
-        if (null != signedjar) {
-            sb.append("-signedjar \"");
-            sb.append(signedjar);
-            sb.append("\" ");
-        } 
-
-        if (verbose) {
-            sb.append("-verbose ");
-        } 
+        try {
+            //DO NOT SET THE -signedjar OPTION if source==dest
+            //unless you like fielding hotspot crash reports
+            if (!FILE_UTILS.areSame(jarSource, targetFile)) {
+                addValue(cmd, "-signedjar");
+                addValue(cmd, targetFile.getPath());
+            }
+        } catch (IOException ioex) {
+            throw new BuildException(ioex);
+        }
 
         if (internalsf) {
-            sb.append("-internalsf ");
-        } 
+            addValue(cmd, "-internalsf");
+        }
 
         if (sectionsonly) {
-            sb.append("-sectionsonly ");
-        } 
+            addValue(cmd, "-sectionsonly");
+        }
 
-        sb.append('\"');
-        sb.append(jar);
-        sb.append("\" ");
-        
-        sb.append('\"');
-        sb.append(alias);
-        sb.append("\" ");
+        if (sigAlg != null) {
+            addValue(cmd, "-sigalg");
+            addValue(cmd, sigAlg);
+        }
 
-        log("Signing Jar : " + (new File(jar)).getAbsolutePath());
-        final ExecTask cmd = (ExecTask) project.createTask("exec");
-        cmd.setCommand(new Commandline(sb.toString()));
-        cmd.setFailonerror(true);
-        cmd.setTaskName( getTaskName() );
+        if (digestAlg != null) {
+            addValue(cmd, "-digestalg");
+            addValue(cmd, digestAlg);
+        }
+
+        //add -tsa operations if declared
+        addTimestampAuthorityCommands(cmd);
+
+        //JAR source is required
+        addValue(cmd, jarSource.getPath());
+
+        //alias is required for signing
+        addValue(cmd, alias);
+
+        log("Signing JAR: "
+            + jarSource.getAbsolutePath()
+            + " to "
+            + targetFile.getAbsolutePath()
+            + " as " + alias);
+
         cmd.execute();
-    } 
-}
 
+        // restore the lastModified attribute
+        if (preserveLastModified) {
+            FILE_UTILS.setFileLastModified(targetFile, lastModified);
+        }
+    }
+
+    /**
+     * If the tsa parameters are set, this passes them to the command.
+     * There is no validation of java version, as third party JDKs
+     * may implement this on earlier/later jarsigner implementations.
+     * @param cmd the exec task.
+     */
+    private void addTimestampAuthorityCommands(final ExecTask cmd) {
+        if (tsaurl != null) {
+            addValue(cmd, "-tsa");
+            addValue(cmd, tsaurl);
+        }
+
+        if (tsacert != null) {
+            addValue(cmd, "-tsacert");
+            addValue(cmd, tsacert);
+        }
+
+        if (tsaproxyhost != null) {
+            if (tsaurl == null || tsaurl.startsWith("https")) {
+                addProxyFor(cmd, "https");
+            }
+            if (tsaurl == null || !tsaurl.startsWith("https")) {
+                addProxyFor(cmd, "http");
+            }
+        }
+    }
+
+    /**
+     * <p>Compare a jar file with its corresponding signed jar. The logic for this
+     * is complex, and best explained in the source itself. Essentially if
+     * either file doesn't exist, or the destfile has an out of date timestamp,
+     * then the return value is false.</p>
+     *
+     * <p>If we are signing ourself, the check {@link #isSigned(File)} is used to
+     * trigger the process.</p>
+     *
+     * @param jarFile       the unsigned jar file
+     * @param signedjarFile the result signed jar file
+     * @return true if the signedjarFile is considered up to date
+     */
+    protected boolean isUpToDate(File jarFile, File signedjarFile) {
+        if (isForce() || null == jarFile || !jarFile.exists()) {
+            //these are pathological cases, but retained in case somebody
+            //subclassed us.
+            return false;
+        }
+
+        //we normally compare destination with source
+        File destFile = signedjarFile;
+        if (destFile == null) {
+            //but if no dest is specified, compare source to source
+            destFile = jarFile;
+        }
+
+        //if, by any means, the destfile and source match,
+        if (jarFile.equals(destFile)) {
+            if (lazy) {
+                //we check the presence of signatures on lazy signing
+                return isSigned(jarFile);
+            }
+            //unsigned or non-lazy self signings are always false
+            return false;
+        }
+
+        //if they are different, the timestamps are used
+        return FILE_UTILS.isUpToDate(jarFile, destFile);
+    }
+
+    /**
+     * test for a file being signed, by looking for a signature in the META-INF
+     * directory with our alias/sigfile.
+     *
+     * @param file the file to be checked
+     * @return true if the file is signed
+     * @see IsSigned#isSigned(File, String)
+     */
+    protected boolean isSigned(File file) {
+        try {
+            return IsSigned.isSigned(file, sigfile == null ? alias : sigfile);
+        } catch (IOException e) {
+            //just log this
+            log(e.toString(), Project.MSG_VERBOSE);
+            return false;
+        }
+    }
+
+    /**
+     * true to indicate that the signed jar modification date remains the same
+     * as the original. Defaults to false
+     *
+     * @param preserveLastModified if true preserve the last modified time
+     */
+    public void setPreserveLastModified(boolean preserveLastModified) {
+        this.preserveLastModified = preserveLastModified;
+    }
+
+    private void addProxyFor(final ExecTask cmd, final String scheme) {
+        addValue(cmd, "-J-D" + scheme + ".proxyHost=" + tsaproxyhost);
+
+        if (tsaproxyport != null) {
+            addValue(cmd, "-J-D" + scheme + ".proxyPort=" + tsaproxyport);
+        }
+    }
+}

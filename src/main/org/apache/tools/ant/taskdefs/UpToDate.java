@@ -1,162 +1,277 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.*;
-import org.apache.tools.ant.types.*;
-import java.io.*;
+import java.io.File;
 import java.util.Enumeration;
-import java.util.Date;
 import java.util.Vector;
 
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.DirectoryScanner;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.Task;
+import org.apache.tools.ant.taskdefs.condition.Condition;
+import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Mapper;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.resources.Union;
+import org.apache.tools.ant.util.FileNameMapper;
+import org.apache.tools.ant.util.MergingMapper;
+import org.apache.tools.ant.util.ResourceUtils;
+import org.apache.tools.ant.util.SourceFileScanner;
+
 /**
- * Will set the given property if the specified target has a timestamp
+ * Sets the given property if the specified target has a timestamp
  * greater than all of the source files.
  *
- * @author William Ferguson <a href="mailto:williamf@mincom.com">williamf@mincom.com</a> 
- * @author Hiroaki Nakamura <a href="mailto:hnakamur@mc.neweb.ne.jp">hnakamur@mc.neweb.ne.jp</a>
- * @author <a href="mailto:stefan.bodewig@megabit.net">Stefan Bodewig</a>
+ * @since Ant 1.2
+ *
+ * @ant.task category="control"
  */
 
-public class UpToDate extends MatchingTask {
+public class UpToDate extends Task implements Condition {
 
-    private String _property;
-    private File _targetFile;
+    private String property;
+    private String value;
+    private File sourceFile;
+    private File targetFile;
     private Vector sourceFileSets = new Vector();
+    private Union sourceResources = new Union();
+
+    // CheckStyle:VisibilityModifier OFF - bc
+    protected Mapper mapperElement = null;
+    // CheckStyle:VisibilityModifier ON
 
     /**
-     * The property to set if the target file is more up to date than each of
-     * the source files.
+     * The property to set if the target file is more up-to-date than
+     * (each of) the source file(s).
      *
-     * @param property the name of the property to set if Target is up to date.
+     * @param property the name of the property to set if Target is up-to-date.
      */
-    public void setProperty(String property) {
-        _property = property;
+    public void setProperty(final String property) {
+        this.property = property;
     }
 
     /**
-     * The file which must be more up to date than each of the source files
+     * The value to set the named property to if the target file is more
+     * up-to-date than (each of) the source file(s). Defaults to 'true'.
+     *
+     * @param value the value to set the property to if Target is up-to-date
+     */
+    public void setValue(final String value) {
+        this.value = value;
+    }
+
+    /**
+     * Returns the value, or "true" if a specific value wasn't provided.
+     */
+    private String getValue() {
+        return (value != null) ? value : "true";
+    }
+
+    /**
+     * The file which must be more up-to-date than (each of) the source file(s)
      * if the property is to be set.
      *
-     * @param file the file which we are checking against.
+     * @param file the file we are checking against.
      */
-    public void setTargetFile(File file) {
-        _targetFile = file;
+    public void setTargetFile(final File file) {
+        this.targetFile = file;
     }
 
     /**
-     * Nested <srcfiles> element.
+     * The file that must be older than the target file
+     * if the property is to be set.
+     *
+     * @param file the file we are checking against the target file.
      */
-    public void addSrcfiles(FileSet fs) {
+    public void setSrcfile(final File file) {
+        this.sourceFile = file;
+    }
+
+    /**
+     * Nested &lt;srcfiles&gt; element.
+     * @param fs the source files
+     */
+    public void addSrcfiles(final FileSet fs) {
         sourceFileSets.addElement(fs);
     }
 
     /**
-     * Sets property to true if target file has a more recent timestamp than
-     * each of the source files.
+     * Nested resource collections as sources.
+     * @return the source resources to configure.
+     * @since Ant 1.7
      */
-    public void execute() throws BuildException {
+    public Union createSrcResources() {
+        return sourceResources;
+    }
 
-        if (sourceFileSets.size() == 0) {
-          throw new BuildException("At least one <srcfiles> element must be set");
+    /**
+     * Defines the FileNameMapper to use (nested mapper element).
+     * @return a mapper to be configured
+     * @throws BuildException if more than one mapper is defined
+     */
+    public Mapper createMapper() throws BuildException {
+        if (mapperElement != null) {
+            throw new BuildException("Cannot define more than one mapper",
+                                     getLocation());
+        }
+        mapperElement = new Mapper(getProject());
+        return mapperElement;
+    }
+
+    /**
+     * A nested filenamemapper
+     * @param fileNameMapper the mapper to add
+     * @since Ant 1.6.3
+     */
+    public void add(FileNameMapper fileNameMapper) {
+        createMapper().add(fileNameMapper);
+    }
+
+    /**
+     * Evaluate (all) target and source file(s) to
+     * see if the target(s) is/are up-to-date.
+     * @return true if the target(s) is/are up-to-date
+     */
+    public boolean eval() {
+        if (sourceFileSets.size() == 0 && sourceResources.size() == 0
+            && sourceFile == null) {
+            throw new BuildException("At least one srcfile or a nested "
+                                     + "<srcfiles> or <srcresources> element "
+                                     + "must be set.");
         }
 
-        if (_targetFile == null) {
-          throw new BuildException("The targetfile attribute must be set");
+        if ((sourceFileSets.size() > 0 || sourceResources.size() > 0)
+            && sourceFile != null) {
+            throw new BuildException("Cannot specify both the srcfile "
+                                     + "attribute and a nested <srcfiles> "
+                                     + "or <srcresources> element.");
         }
 
-        // if not there then it can't be up to date
-        if (!_targetFile.exists()) return; 
+        if (targetFile == null && mapperElement == null) {
+            throw new BuildException("The targetfile attribute or a nested "
+                                     + "mapper element must be set.");
+        }
 
-        Enumeration enum = sourceFileSets.elements();
+        // if the target file is not there, then it can't be up-to-date
+        if (targetFile != null && !targetFile.exists()) {
+            log("The targetfile \"" + targetFile.getAbsolutePath()
+                    + "\" does not exist.", Project.MSG_VERBOSE);
+            return false;
+        }
+
+        // if the source file isn't there, throw an exception
+        if (sourceFile != null && !sourceFile.exists()) {
+            throw new BuildException(sourceFile.getAbsolutePath()
+                                     + " not found.");
+        }
+
         boolean upToDate = true;
-        while (upToDate && enum.hasMoreElements()) {
-            FileSet fs = (FileSet) enum.nextElement();
-            DirectoryScanner ds = fs.getDirectoryScanner(project);
-            upToDate = upToDate && scanDir(fs.getDir(project), _targetFile, 
+        if (sourceFile != null) {
+            if (mapperElement == null) {
+                upToDate = targetFile.lastModified() >= sourceFile.lastModified();
+            } else {
+                SourceFileScanner sfs = new SourceFileScanner(this);
+                upToDate = sfs.restrict(new String[] {sourceFile.getAbsolutePath()},
+                                  null, null,
+                                  mapperElement.getImplementation()).length == 0;
+            }
+            if (!upToDate) {
+                log(sourceFile.getAbsolutePath()
+                    + " is newer than (one of) its target(s).",
+                    Project.MSG_VERBOSE);
+            }
+        }
+
+        // filesets are separate from the rest for performance
+        // reasons.  If we use the code for union below, we'll always
+        // scan all filesets, even if we know the target is out of
+        // date after the first test.
+        Enumeration e = sourceFileSets.elements();
+        while (upToDate && e.hasMoreElements()) {
+            FileSet fs = (FileSet) e.nextElement();
+            DirectoryScanner ds = fs.getDirectoryScanner(getProject());
+            upToDate = scanDir(fs.getDir(getProject()),
                                            ds.getIncludedFiles());
         }
 
         if (upToDate) {
-            this.project.setProperty(_property, "true");
-            log("File \"" + _targetFile.getAbsolutePath() + "\" is up to date.",
-                Project.MSG_VERBOSE);
+            Resource[] r = sourceResources.listResources();
+            if (r.length > 0) {
+                upToDate = ResourceUtils.selectOutOfDateSources(
+                        this, r, getMapper(), getProject()).length == 0;
+            }
+        }
+
+        return upToDate;
+    }
+
+
+    /**
+     * Sets property to true if target file(s) have a more recent timestamp
+     * than (each of) the corresponding source file(s).
+     * @throws BuildException on error
+     */
+    public void execute() throws BuildException {
+        if (property == null) {
+            throw new BuildException("property attribute is required.",
+                                     getLocation());
+        }
+        boolean upToDate = eval();
+        if (upToDate) {
+            getProject().setNewProperty(property, getValue());
+            if (mapperElement == null) {
+                log("File \"" + targetFile.getAbsolutePath()
+                    + "\" is up-to-date.", Project.MSG_VERBOSE);
+            } else {
+                log("All target files are up-to-date.",
+                    Project.MSG_VERBOSE);
+            }
         }
     }
 
-    protected boolean scanDir(File srcDir, File destFile, String files[]) {
-        long destLastModified = destFile.lastModified();
-        long now = (new Date()).getTime();
-        if (destLastModified > now) {
-            log("Warning: destfile modified in the future: " +
-                destFile.getPath(), Project.MSG_WARN);
+    /**
+     * Scan a directory for files to check for "up to date"ness
+     * @param srcDir the directory
+     * @param files the files to scan for
+     * @return true if the files are up to date
+     */
+    protected boolean scanDir(File srcDir, String[] files) {
+        SourceFileScanner sfs = new SourceFileScanner(this);
+        FileNameMapper mapper = getMapper();
+        File dir = srcDir;
+        if (mapperElement == null) {
+            dir = null;
         }
+        return sfs.restrict(files, srcDir, dir, mapper).length == 0;
+    }
 
-        for (int i = 0; i < files.length; i++) {
-            File srcFile = new File(srcDir, files[i]);
-
-            long srcLastModified = srcFile.lastModified();
-            if (srcLastModified > now) {
-                log("Warning: file modified in the future: " +
-                    files[i], Project.MSG_WARN);
-            }
-
-            if (srcLastModified > destLastModified) {
-                return false;
-            }
+    private FileNameMapper getMapper() {
+        FileNameMapper mapper = null;
+        if (mapperElement == null) {
+            MergingMapper mm = new MergingMapper();
+            mm.setTo(targetFile.getAbsolutePath());
+            mapper = mm;
+        } else {
+            mapper = mapperElement.getImplementation();
         }
-        return true;
+        return mapper;
     }
 }

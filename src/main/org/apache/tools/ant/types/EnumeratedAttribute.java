@@ -1,55 +1,19 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.types;
@@ -63,52 +27,127 @@ import org.apache.tools.ant.BuildException;
  * <p>See {@link org.apache.tools.ant.taskdefs.FixCRLF FixCRLF} for an
  * example.
  *
- * @author Stefan Bodewig <a href="mailto:stefan.bodewig@megabit.net">stefan.bodewig@megabit.net</a> 
  */
 public abstract class EnumeratedAttribute {
-
+    // CheckStyle:VisibilityModifier OFF - bc
+    /**
+     * The selected value in this enumeration.
+     */
     protected String value;
+
+    // CheckStyle:VisibilityModifier ON
+
+    /**
+     * the index of the selected value in the array.
+     */
+    private int index = -1;
 
     /**
      * This is the only method a subclass needs to implement.
      *
      * @return an array holding all possible values of the enumeration.
+     * The order of elements must be fixed so that <tt>indexOfValue(String)</tt>
+     * always return the same index for the same value.
      */
     public abstract String[] getValues();
 
-    public EnumeratedAttribute() {}
+    /** bean constructor */
+    protected EnumeratedAttribute() {
+    }
 
     /**
-     * Invoked by {@link IntrospectionHelper IntrospectionHelper}.
+     * Factory method for instantiating EAs via API in a more
+     * developer friendly way.
+     * @param clazz             Class, extending EA, which to instantiate
+     * @param value             The value to set on that EA
+     * @return                  Configured EA
+     * @throws BuildException   If the class could not be found or the value
+     *                          is not valid for the given EA-class.
+     * @see <a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=14831">
+     * http://issues.apache.org/bugzilla/show_bug.cgi?id=14831</a>
+     */
+    public static EnumeratedAttribute getInstance(
+        Class<? extends EnumeratedAttribute> clazz,
+        String value) throws BuildException {
+        if (!EnumeratedAttribute.class.isAssignableFrom(clazz)) {
+            throw new BuildException(
+                "You have to provide a subclass from EnumeratedAttribut as clazz-parameter.");
+        }
+        EnumeratedAttribute ea = null;
+        try {
+            ea = clazz.newInstance();
+        } catch (Exception e) {
+            throw new BuildException(e);
+        }
+        ea.setValue(value);
+        return ea;
+    }
+
+    /**
+     * Invoked by {@link org.apache.tools.ant.IntrospectionHelper IntrospectionHelper}.
+     * @param value the <code>String</code> value of the attribute
+     * @throws BuildException if the value is not valid for the attribute
      */
     public final void setValue(String value) throws BuildException {
-        if (!containsValue(value)) {
-            throw new BuildException(value+" is not a legal value for this attribute");
+        int idx = indexOfValue(value);
+        if (idx == -1) {
+            throw new BuildException(value + " is not a legal value for this attribute");
         }
+        this.index = idx;
         this.value = value;
     }
 
     /**
      * Is this value included in the enumeration?
+     * @param value the <code>String</code> value to look up
+     * @return true if the value is valid
      */
     public final boolean containsValue(String value) {
-        String[] values = getValues();
-        if (values == null || value == null) {
-            return false;
-        }
-        
-        for (int i=0; i<values.length; i++) {
-            if (value.equals(values[i])) {
-                return true;
-            }
-        }
-        return false;
+        return (indexOfValue(value) != -1);
     }
 
     /**
-     * Retrieves the value.
+     * get the index of a value in this enumeration.
+     * @param value the string value to look for.
+     * @return the index of the value in the array of strings
+     * or -1 if it cannot be found.
+     * @see #getValues()
+     */
+    public final int indexOfValue(String value) {
+        String[] values = getValues();
+        if (values == null || value == null) {
+            return -1;
+        }
+        for (int i = 0; i < values.length; i++) {
+            if (value.equals(values[i])) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * @return the selected value.
      */
     public final String getValue() {
         return value;
     }
+
+    /**
+     * @return the index of the selected value in the array.
+     * @see #getValues()
+     */
+    public final int getIndex() {
+        return index;
+    }
+
+    /**
+     * Convert the value to its string form.
+     *
+     * @return the string form of the value.
+     */
+    public String toString() {
+        return getValue();
+    }
+
 }

@@ -1,125 +1,122 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 1999 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant;
 
+import java.io.IOException;
+import java.util.Enumeration;
+
+import org.apache.tools.ant.dispatch.DispatchUtils;
+
 /**
  * Base class for all tasks.
  *
- * <p>Use {@link Project#createTask Project.createTask} to create a new Task.
+ * Use Project.createTask to create a new task instance rather than
+ * using this class directly for construction.
+ *
+ * @see Project#createTask
  */
+public abstract class Task extends ProjectComponent {
+    // CheckStyle:VisibilityModifier OFF - bc
+    /**
+     * Target this task belongs to, if any.
+     * @deprecated since 1.6.x.
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getOwningTarget()} method.
+     */
+    protected Target target;
 
-public abstract class Task {
+    /**
+     * Name of this task to be used for logging purposes.
+     * This defaults to the same as the type, but may be
+     * overridden by the user. For instance, the name "java"
+     * isn't terribly descriptive for a task used within
+     * another task - the outer task code can probably
+     * provide a better one.
+     * @deprecated since 1.6.x.
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getTaskName()} method.
+     */
+    protected String taskName;
 
-    protected Project project = null;
-    protected Target target = null;
-    protected String description=null;
-    protected Location location = Location.UNKNOWN_LOCATION;
-    protected String taskName = null;
-    protected String taskType = null;
+    /**
+     * Type of this task.
+     *
+     * @deprecated since 1.6.x.
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getTaskType()} method.
+     */
+    protected String taskType;
+
+    /**
+     * Wrapper for this object, used to configure it at runtime.
+     *
+     * @deprecated since 1.6.x.
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getWrapper()} method.
+     */
     protected RuntimeConfigurable wrapper;
 
+    // CheckStyle:VisibilityModifier ON
+
     /**
-     * Sets the project object of this task. This method is used by
-     * project when a task is added to it so that the task has
-     * access to the functions of the project. It should not be used
-     * for any other purpose.
-     *
-     * @param project Project in whose scope this task belongs.
+     * Whether or not this task is invalid. A task becomes invalid
+     * if a conflicting class is specified as the implementation for
+     * its type.
      */
-    void setProject(Project project) {
-        this.project = project;
+    private boolean invalid;
+
+    /** Sole constructor. */
+    public Task() {
     }
 
     /**
-     * Get the Project to which this task belongs
-     *
-     * @return the task's project.
-     */
-    public Project getProject() {
-        return project;
-    }
-    
-    /**
-     * Sets the target object of this task.
+     * Sets the target container of this task.
      *
      * @param target Target in whose scope this task belongs.
+     *               May be <code>null</code>, indicating a top-level task.
      */
     public void setOwningTarget(Target target) {
         this.target = target;
     }
 
     /**
-     * Get the Target to which this task belongs
+     * Returns the container target of this task.
      *
-     * @return the task's target.
+     * @return The target containing this task, or <code>null</code> if
+     *         this task is a top-level task.
      */
     public Target getOwningTarget() {
         return target;
     }
-    
+
     /**
-     * Set the name to use in logging messages.
+     * Sets the name to use in logging messages.
      *
-     * @param name the name to use in logging messages.
+     * @param name The name to use in logging messages.
+     *             Should not be <code>null</code>.
      */
     public void setTaskName(String name) {
         this.taskName = name;
     }
 
     /**
-     * Get the name to use in logging messages.
+     * Returns the name to use in logging messages.
      *
      * @return the name to use in logging messages.
      */
@@ -128,94 +125,357 @@ public abstract class Task {
     }
 
     /**
-     * Set the name with which the task has been invoked.
+     * Sets the name with which the task has been invoked.
      *
-     * @param type the name the task has been invoked as.
+     * @param type The name the task has been invoked as.
+     *             Should not be <code>null</code>.
      */
-    void setTaskType(String type) {
+    public void setTaskType(String type) {
         this.taskType = type;
     }
 
     /**
-     * Log a message with the default (INFO) priority.
+     * Called by the project to let the task initialize properly.
+     * The default implementation is a no-op.
      *
-     * @param the message to be logged.
+     * @exception BuildException if something goes wrong with the build
+     */
+    public void init() throws BuildException {
+    }
+
+    /**
+     * Called by the project to let the task do its work. This method may be
+     * called more than once, if the task is invoked more than once.
+     * For example,
+     * if target1 and target2 both depend on target3, then running
+     * "ant target1 target2" will run all tasks in target3 twice.
+     *
+     * @exception BuildException if something goes wrong with the build.
+     */
+    public void execute() throws BuildException {
+    }
+
+    /**
+     * Returns the wrapper used for runtime configuration.
+     *
+     * @return the wrapper used for runtime configuration. This
+     *         method will generate a new wrapper (and cache it)
+     *         if one isn't set already.
+     */
+    public RuntimeConfigurable getRuntimeConfigurableWrapper() {
+        if (wrapper == null) {
+            wrapper = new RuntimeConfigurable(this, getTaskName());
+        }
+        return wrapper;
+    }
+
+    /**
+     * Sets the wrapper to be used for runtime configuration.
+     *
+     * This method should be used only by the ProjectHelper and Ant internals.
+     * It is public to allow helper plugins to operate on tasks, normal tasks
+     * should never use it.
+     *
+     * @param wrapper The wrapper to be used for runtime configuration.
+     *                May be <code>null</code>, in which case the next call
+     *                to getRuntimeConfigurableWrapper will generate a new
+     *                wrapper.
+     */
+    public void setRuntimeConfigurableWrapper(RuntimeConfigurable wrapper) {
+        this.wrapper = wrapper;
+    }
+
+    // TODO: (Jon Skeet) The comment "if it hasn't been done already" may
+    // not be strictly true. wrapper.maybeConfigure() won't configure the same
+    // attributes/text more than once, but it may well add the children again,
+    // unless I've missed something.
+    /**
+     * Configures this task - if it hasn't been done already.
+     * If the task has been invalidated, it is replaced with an
+     * UnknownElement task which uses the new definition in the project.
+     *
+     * @exception BuildException if the task cannot be configured.
+     */
+    public void maybeConfigure() throws BuildException {
+        if (!invalid) {
+            if (wrapper != null) {
+                wrapper.maybeConfigure(getProject());
+            }
+        } else {
+            getReplacement();
+        }
+    }
+
+    /**
+     * Force the task to be reconfigured from its RuntimeConfigurable.
+     */
+    public void reconfigure() {
+        if (wrapper != null) {
+            wrapper.reconfigure(getProject());
+        }
+    }
+
+    /**
+     * Handles output by logging it with the INFO priority.
+     *
+     * @param output The output to log. Should not be <code>null</code>.
+     */
+    protected void handleOutput(String output) {
+        log(output, Project.MSG_INFO);
+    }
+
+    /**
+     * Handles output by logging it with the INFO priority.
+     *
+     * @param output The output to log. Should not be <code>null</code>.
+     *
+     * @since Ant 1.5.2
+     */
+    protected void handleFlush(String output) {
+        handleOutput(output);
+    }
+
+    /**
+     * Handle an input request by this task.
+     *
+     * @param buffer the buffer into which data is to be read.
+     * @param offset the offset into the buffer at which data is stored.
+     * @param length the amount of data to read.
+     *
+     * @return the number of bytes read.
+     *
+     * @exception IOException if the data cannot be read.
+     * @since Ant 1.6
+     */
+    protected int handleInput(byte[] buffer, int offset, int length)
+        throws IOException {
+        return getProject().defaultInput(buffer, offset, length);
+    }
+
+    /**
+     * Handles an error output by logging it with the WARN priority.
+     *
+     * @param output The error output to log. Should not be <code>null</code>.
+     */
+    protected void handleErrorOutput(String output) {
+        log(output, Project.MSG_WARN);
+    }
+
+    /**
+     * Handles an error line by logging it with the WARN priority.
+     *
+     * @param output The error output to log. Should not be <code>null</code>.
+     *
+     * @since Ant 1.5.2
+     */
+    protected void handleErrorFlush(String output) {
+        handleErrorOutput(output);
+    }
+
+    /**
+     * Logs a message with the default (INFO) priority.
+     *
+     * @param msg The message to be logged. Should not be <code>null</code>.
      */
     public void log(String msg) {
         log(msg, Project.MSG_INFO);
     }
 
     /**
-     * Log a mesage with the give priority.
+     * Logs a message with the given priority. This delegates
+     * the actual logging to the project.
      *
-     * @param the message to be logged.
-     * @param msgLevel the message priority at which this message is to be logged.
+     * @param msg The message to be logged. Should not be <code>null</code>.
+     * @param msgLevel The message priority at which this message is to
+     *                 be logged.
      */
     public void log(String msg, int msgLevel) {
-        project.log(this, msg, msgLevel);
-    }
-
-
-    /** Sets a description of the current action. It will be usefull in commenting
-     *  what we are doing.
-     */
-    public void setDescription( String desc ) {
-	description=desc;
-    }
-
-    public String getDescription() {
-	return description;
-    }
-
-    /**
-     * Called by the project to let the task initialize properly. Normally it does nothing.
-     *
-     * @throws BuildException if someting goes wrong with the build
-     */
-    public void init() throws BuildException {}
-
-    /**
-     * Called by the project to let the task do it's work. Normally it does nothing.
-     *
-     * @throws BuildException if someting goes wrong with the build
-     */
-    public void execute() throws BuildException {};
-
-    /**
-     * Returns the file location where this task was defined.
-     */
-    public Location getLocation() {
-        return location;
-    }
-
-    /**
-     * Sets the file location where this task was defined.
-     */
-    public void setLocation(Location location) {
-        this.location = location;
-    }
-
-    /**
-     * Returns the wrapper class for runtime configuration.
-     */
-    public RuntimeConfigurable getRuntimeConfigurableWrapper() {
-        if (wrapper == null) {
-            wrapper = new RuntimeConfigurable(this);
+        if (getProject() != null) {
+            getProject().log(this, msg, msgLevel);
+        } else {
+            super.log(msg, msgLevel);
         }
+    }
+
+    /**
+     * Logs a message with the given priority. This delegates
+     * the actual logging to the project.
+     *
+     * @param t The exception to be logged. Should not be <code>null</code>.
+     * @param msgLevel The message priority at which this message is to
+     *                 be logged.
+     * @since 1.7
+     */
+    public void log(Throwable t, int msgLevel) {
+        if (t != null) {
+            log(t.getMessage(), t, msgLevel);
+        }
+    }
+
+    /**
+     * Logs a message with the given priority. This delegates
+     * the actual logging to the project.
+     *
+     * @param msg The message to be logged. Should not be <code>null</code>.
+     * @param t The exception to be logged. May be <code>null</code>.
+     * @param msgLevel The message priority at which this message is to
+     *                 be logged.
+     * @since 1.7
+     */
+    public void log(String msg, Throwable t, int msgLevel) {
+        if (getProject() != null) {
+            getProject().log(this, msg, t, msgLevel);
+        } else {
+            super.log(msg, msgLevel);
+        }
+    }
+
+    /**
+     * Performs this task if it's still valid, or gets a replacement
+     * version and performs that otherwise.
+     *
+     * Performing a task consists of firing a task started event,
+     * configuring the task, executing it, and then firing task finished
+     * event. If a runtime exception is thrown, the task finished event
+     * is still fired, but with the exception as the cause.
+     */
+    public final void perform() {
+        if (!invalid) {
+            getProject().fireTaskStarted(this);
+            Throwable reason = null;
+            try {
+                maybeConfigure();
+                DispatchUtils.execute(this);
+            } catch (BuildException ex) {
+                if (ex.getLocation() == Location.UNKNOWN_LOCATION) {
+                    ex.setLocation(getLocation());
+                }
+                reason = ex;
+                throw ex;
+            } catch (Exception ex) {
+                reason = ex;
+                BuildException be = new BuildException(ex);
+                be.setLocation(getLocation());
+                throw be;
+            } catch (Error ex) {
+                reason = ex;
+                throw ex;
+            } finally {
+                getProject().fireTaskFinished(this, reason);
+            }
+        } else {
+            UnknownElement ue = getReplacement();
+            Task task = ue.getTask();
+            task.perform();
+        }
+    }
+
+    /**
+     * Marks this task as invalid. Any further use of this task
+     * will go through a replacement with the updated definition.
+     */
+    final void markInvalid() {
+        invalid = true;
+    }
+
+    /**
+     * Has this task been marked invalid?
+     *
+     * @return true if this task is no longer valid. A new task should be
+     * configured in this case.
+     *
+     * @since Ant 1.5
+     */
+    protected final boolean isInvalid() {
+        return invalid;
+    }
+
+    /**
+     * Replacement element used if this task is invalidated.
+     */
+    private UnknownElement replacement;
+
+    /**
+     * Creates an UnknownElement that can be used to replace this task.
+     * Once this has been created once, it is cached and returned by
+     * future calls.
+     *
+     * @return the UnknownElement instance for the new definition of this task.
+     */
+    private UnknownElement getReplacement() {
+        if (replacement == null) {
+            replacement = new UnknownElement(taskType);
+            replacement.setProject(getProject());
+            replacement.setTaskType(taskType);
+            replacement.setTaskName(taskName);
+            replacement.setLocation(getLocation());
+            replacement.setOwningTarget(target);
+            replacement.setRuntimeConfigurableWrapper(wrapper);
+            wrapper.setProxy(replacement);
+            replaceChildren(wrapper, replacement);
+            target.replaceChild(this, replacement);
+            replacement.maybeConfigure();
+        }
+        return replacement;
+    }
+
+    /**
+     * Recursively adds an UnknownElement instance for each child
+     * element of replacement.
+     *
+     * @since Ant 1.5.1
+     */
+    private void replaceChildren(RuntimeConfigurable wrapper,
+                                 UnknownElement parentElement) {
+        Enumeration<RuntimeConfigurable> e = wrapper.getChildren();
+        while (e.hasMoreElements()) {
+            RuntimeConfigurable childWrapper = e.nextElement();
+            UnknownElement childElement =
+                new UnknownElement(childWrapper.getElementTag());
+            parentElement.addChild(childElement);
+            childElement.setProject(getProject());
+            childElement.setRuntimeConfigurableWrapper(childWrapper);
+            childWrapper.setProxy(childElement);
+            replaceChildren(childWrapper, childElement);
+        }
+    }
+
+    /**
+     * Return the type of task.
+     *
+     * @return the type of task.
+     */
+    public String getTaskType() {
+        return taskType;
+    }
+
+    /**
+     * Return the runtime configurable structure for this task.
+     *
+     * @return the runtime structure for this task.
+     */
+    protected RuntimeConfigurable getWrapper() {
         return wrapper;
     }
 
-    protected void setRuntimeConfigurableWrapper(RuntimeConfigurable wrapper) {
-        this.wrapper = wrapper;
-    }
-
     /**
-     * Configure this task - if it hasn't been done already.
+     * Bind a task to another; use this when configuring a newly created
+     * task to do work on behalf of another.
+     * Project, OwningTarget, TaskName, Location and Description are all copied
+     *
+     * Important: this method does not call {@link Task#init()}.
+     * If you are creating a task to delegate work to, call {@link Task#init()}
+     * to initialize it.
+     *
+     * @param owner owning target
+     * @since Ant1.7
      */
-    public void maybeConfigure() throws BuildException {
-        if (wrapper != null) {
-            wrapper.maybeConfigure(project);
-        }
+    public final void bindToOwner(Task owner) {
+        setProject(owner.getProject());
+        setOwningTarget(owner.getOwningTarget());
+        setTaskName(owner.getTaskName());
+        setDescription(owner.getDescription());
+        setLocation(owner.getLocation());
+        setTaskType(owner.getTaskType());
     }
 }
-

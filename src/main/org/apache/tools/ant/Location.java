@@ -1,111 +1,179 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 1999 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant;
 
+import java.io.Serializable;
+
+import org.apache.tools.ant.util.FileUtils;
+import org.xml.sax.Locator;
+
 /**
- *	Stores the file name and line number in a file.
+ * Stores the location of a piece of text within a file (file name,
+ * line number and column number). Note that the column number is
+ * currently ignored.
+ *
  */
-public class Location {
-	private String fileName;
-	private int lineNumber;
-	private int columnNumber;
+public class Location implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-	public static final Location UNKNOWN_LOCATION = new Location();
+    /** Name of the file. */
+    private final String fileName;
+    /** Line number within the file. */
+    private final int lineNumber;
+    /** Column number within the file. */
+    private final int columnNumber;
 
-	/**
-	 *	Creates an "unknown" location.
-	 */
-	private Location() {
-		this(null, 0, 0);
-	}
+    /** Location to use when one is needed but no information is available */
+    public static final Location UNKNOWN_LOCATION = new Location();
 
-	/**
-	 *	Creates a location consisting of a file name but no line number.
-	 */
-	public Location(String fileName) {
-		this(fileName, 0, 0);
-	}
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
-	/**
-	 *	Creates a location consisting of a file name and line number.
-	 */
-	public Location(String fileName, int lineNumber, int columnNumber) {
-		this.fileName = fileName;
-		this.lineNumber = lineNumber;
-		this.columnNumber = columnNumber;
-	}
+    /**
+     * Creates an "unknown" location.
+     */
+    private Location() {
+        this(null, 0, 0);
+    }
 
-	/**
-	 *	Returns the file name, line number and a trailing space. An error
-	 *	message can be appended easily. For unknown locations, returns
-	 *	an empty string.
-	 */
-	public String toString() {
-		StringBuffer buf = new StringBuffer();
+    /**
+     * Creates a location consisting of a file name but no line number or
+     * column number.
+     *
+     * @param fileName The name of the file. May be <code>null</code>,
+     *                 in which case the location is equivalent to
+     *                 {@link #UNKNOWN_LOCATION UNKNOWN_LOCATION}.
+     */
+    public Location(String fileName) {
+        this(fileName, 0, 0);
+    }
 
-		if (fileName != null) {
-			buf.append(fileName);
+    /**
+     * Creates a location from the SAX locator using the system ID as
+     * the filename.
+     *
+     * @param loc Must not be <code>null</code>.
+     *
+     * @since Ant 1.6
+     */
+    public Location(Locator loc) {
+        this(loc.getSystemId(), loc.getLineNumber(), loc.getColumnNumber());
+    }
 
-			if (lineNumber != 0) {
-				buf.append(":");
-				buf.append(lineNumber);
-			}
+    /**
+     * Creates a location consisting of a file name, line number and
+     * column number.
+     *
+     * @param fileName The name of the file. May be <code>null</code>,
+     *                 in which case the location is equivalent to
+     *                 {@link #UNKNOWN_LOCATION UNKNOWN_LOCATION}.
+     *
+     * @param lineNumber Line number within the file. Use 0 for unknown
+     *                   positions within a file.
+     * @param columnNumber Column number within the line.
+     */
+    public Location(String fileName, int lineNumber, int columnNumber) {
+        if (fileName != null && fileName.startsWith("file:")) {
+            this.fileName = FILE_UTILS.fromURI(fileName);
+        } else {
+            this.fileName = fileName;
+        }
+        this.lineNumber = lineNumber;
+        this.columnNumber = columnNumber;
+    }
 
-			buf.append(": ");
-		}
+    /**
+     * @return the filename portion of the location
+     * @since Ant 1.6
+     */
+    public String getFileName() {
+        return fileName;
+    }
 
-		return buf.toString();
-	}
+    /**
+     * @return the line number
+     * @since Ant 1.6
+     */
+    public int getLineNumber() {
+        return lineNumber;
+    }
+
+    /**
+     * @return the column number
+     * @since Ant 1.7
+     */
+    public int getColumnNumber() {
+        return columnNumber;
+    }
+
+    /**
+     * Returns the file name, line number, a colon and a trailing space.
+     * An error message can be appended easily. For unknown locations, an
+     * empty string is returned.
+     *
+     * @return a String of the form <code>"fileName:lineNumber: "</code>
+     *         if both file name and line number are known,
+     *         <code>"fileName: "</code> if only the file name is known,
+     *         and the empty string for unknown locations.
+     */
+    public String toString() {
+        StringBuffer buf = new StringBuffer();
+
+        if (fileName != null) {
+            buf.append(fileName);
+
+            if (lineNumber != 0) {
+                buf.append(":");
+                buf.append(lineNumber);
+            }
+
+            buf.append(": ");
+        }
+
+        return buf.toString();
+    }
+
+    /**
+     * Equality operation.
+     * @param other the object to compare to.
+     * @return true if the other object contains the same information
+     *              as this object.
+     * @since Ant 1.6.3
+     */
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null) {
+            return false;
+        }
+        if (!(other.getClass() == getClass())) {
+            return false;
+        }
+        return toString().equals(other.toString());
+    }
+
+    /**
+     * Hash operation.
+     * @return a hash code value for this location.
+     * @since Ant 1.6.3
+     */
+    public int hashCode() {
+        return toString().hashCode();
+    }
 }

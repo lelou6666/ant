@@ -1,136 +1,202 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.taskdefs.optional.junit;
 
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.DirectoryScanner;
+
+import java.io.File;
+import java.util.Enumeration;
+import java.util.Vector;
+
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.FileSet;
-import org.apache.tools.ant.types.Reference;
-
-import java.util.*;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.Resources;
 
 /**
- * Create JUnitTests from a list of files.
+ * <p> Create then run <code>JUnitTest</code>'s based on the list of files
+ *     given by the fileset attribute.
  *
- * @author <a href="mailto:jeff.martin@synamic.co.uk">Jeff Martin</a>
- * @author <a href="mailto:stefan.bodewig@megabit.net">Stefan Bodewig</a> 
+ * <p> Every <code>.java</code> or <code>.class</code> file in the fileset is
+ * assumed to be a testcase.
+ * A <code>JUnitTest</code> is created for each of these named classes with
+ * basic setup inherited from the parent <code>BatchTest</code>.
+ *
+ * @see JUnitTest
  */
 public final class BatchTest extends BaseTest {
+
+    /** the reference to the project */
     private Project project;
 
-    private Vector filesets = new Vector();
+    /** the list of filesets containing the testcase filename rules */
+    private Resources resources = new Resources();
 
-    public BatchTest(Project project){
+    /**
+     * create a new batchtest instance
+     * @param project     the project it depends on.
+     */
+    public BatchTest(Project project) {
         this.project = project;
+        resources.setCache(true);
     }
 
+    /**
+     * Add a new fileset instance to this batchtest. Whatever the fileset is,
+     * only filename that are <tt>.java</tt> or <tt>.class</tt> will be
+     * considered as 'candidates'.
+     * @param     fs the new fileset containing the rules to get the testcases.
+     */
     public void addFileSet(FileSet fs) {
-        filesets.addElement(fs);
+        add(fs);
+
+        // this one is here because the changes to support ResourceCollections
+        // have broken Magic's JUnitTestTask.
+        //
+        // The task adds a FileSet to a BatchTest instance using the
+        // Java API and without telling the FileSet about its project
+        // instance.  The original code would pass in project on the
+        // call to getDirectoryScanner - which is now hidden deep into
+        // Resources.iterator() and not reachable.
+        if (fs.getProject() == null) {
+            fs.setProject(project);
+        }
     }
 
-    public final Enumeration elements(){
-        return new FileList();
+
+    /**
+     * Add a new ResourceCollection instance to this
+     * batchtest. Whatever the collection is, only names that are
+     * <tt>.java</tt> or <tt>.class</tt> will be considered as
+     * 'candidates'.
+     * @param rc the new ResourceCollection containing the rules to
+     * get the testcases.
+     * @since Ant 1.7
+     */
+    public void add(ResourceCollection rc) {
+        resources.add(rc);
     }
 
-    public class FileList implements Enumeration{
-        private String files[]=null;
-        private int i=0;
-        
-        private FileList(){
-            Vector v = new Vector();
-            for (int j=0; j<filesets.size(); j++) {
-                FileSet fs = (FileSet) filesets.elementAt(j);
-                DirectoryScanner ds = fs.getDirectoryScanner(project);
-                ds.scan();
-                String[] f = ds.getIncludedFiles();
-                for (int k=0; k<f.length; k++) {
-                    if (f[k].endsWith(".java")) {
-                        v.addElement(f[k].substring(0, f[k].length()-5));
-                    } else if (f[k].endsWith(".class")) {
-                        v.addElement(f[k].substring(0, f[k].length()-6));
-                    }
+    /**
+     * Return all <tt>JUnitTest</tt> instances obtain by applying the fileset rules.
+     * @return  an enumeration of all elements of this batchtest that are
+     * a <tt>JUnitTest</tt> instance.
+     */
+    public Enumeration elements() {
+        JUnitTest[] tests = createAllJUnitTest();
+        return Enumerations.fromArray(tests);
+    }
+
+    /**
+     * Convenient method to merge the <tt>JUnitTest</tt>s of this batchtest
+     * to a <tt>Vector</tt>.
+     * @param v the vector to which should be added all individual tests of this
+     * batch test.
+     */
+    void addTestsTo(Vector v) {
+        JUnitTest[] tests = createAllJUnitTest();
+        v.ensureCapacity(v.size() + tests.length);
+        for (int i = 0; i < tests.length; i++) {
+            v.addElement(tests[i]);
+        }
+    }
+
+    /**
+     * Create all <tt>JUnitTest</tt>s based on the filesets. Each instance
+     * is configured to match this instance properties.
+     * @return the array of all <tt>JUnitTest</tt>s that belongs to this batch.
+     */
+    private JUnitTest[] createAllJUnitTest() {
+        String[] filenames = getFilenames();
+        JUnitTest[] tests = new JUnitTest[filenames.length];
+        for (int i = 0; i < tests.length; i++) {
+            String classname = javaToClass(filenames[i]);
+            tests[i] = createJUnitTest(classname);
+        }
+        return tests;
+    }
+
+    /**
+     * Iterate over all filesets and return the filename of all files
+     * that end with <tt>.java</tt> or <tt>.class</tt>. This is to avoid
+     * wrapping a <tt>JUnitTest</tt> over an xml file for example. A Testcase
+     * is obviously a java file (compiled or not).
+     * @return an array of filenames without their extension. As they should
+     * normally be taken from their root, filenames should match their fully
+     * qualified class name (If it is not the case it will fail when running the test).
+     * For the class <tt>org/apache/Whatever.class</tt> it will return <tt>org/apache/Whatever</tt>.
+     */
+    private String[] getFilenames() {
+        Vector v = new Vector();
+        for (Resource r : resources) {
+            if (r.isExists()) {
+                String pathname = r.getName();
+                if (pathname.endsWith(".java")) {
+                    v.addElement(pathname.substring(0, pathname.length() - ".java".length()));
+                } else if (pathname.endsWith(".class")) {
+                    v.addElement(pathname.substring(0, pathname.length() - ".class".length()));
                 }
             }
+        }
 
-            files = new String[v.size()];
-            v.copyInto(files);
-        }
-        public final boolean hasMoreElements(){
-            if(i<files.length)return true;
-            return false;
-        }
-        public final Object nextElement() throws NoSuchElementException{
-            if(hasMoreElements()){
-                JUnitTest test = new JUnitTest(javaToClass(files[i]));
-                test.setHaltonerror(haltOnError);
-                test.setHaltonfailure(haltOnFail);
-                test.setFork(fork);
-                test.setIf(ifProperty);
-                test.setUnless(unlessProperty);
-                Enumeration list = formatters.elements();
-                while (list.hasMoreElements()) {
-                    test.addFormatter((FormatterElement)list.nextElement());
-                }
-                i++;
-                return test;
-            }
-            throw new NoSuchElementException();
-        }
-        public final String javaToClass(String fileName){
-            return fileName.replace(java.io.File.separatorChar, '.');
-        }
+        String[] files = new String[v.size()];
+        v.copyInto(files);
+        return files;
     }
+
+    /**
+     * Convenient method to convert a pathname without extension to a
+     * fully qualified classname. For example <tt>org/apache/Whatever</tt> will
+     * be converted to <tt>org.apache.Whatever</tt>
+     * @param filename the filename to "convert" to a classname.
+     * @return the classname matching the filename.
+     */
+    public static String javaToClass(String filename) {
+        return filename.replace(File.separatorChar, '.').replace('/', '.')
+            .replace('\\', '.');
+    }
+
+    /**
+     * Create a <tt>JUnitTest</tt> that has the same property as this
+     * <tt>BatchTest</tt> instance.
+     * @param classname the name of the class that should be run as a
+     * <tt>JUnitTest</tt>. It must be a fully qualified name.
+     * @return the <tt>JUnitTest</tt> over the given classname.
+     */
+    private JUnitTest createJUnitTest(String classname) {
+        JUnitTest test = new JUnitTest();
+        test.setName(classname);
+        test.setHaltonerror(this.haltOnError);
+        test.setHaltonfailure(this.haltOnFail);
+        test.setFiltertrace(this.filtertrace);
+        test.setFork(this.fork);
+        test.setIf(getIfCondition());
+        test.setUnless(getUnlessCondition());
+        test.setTodir(this.destDir);
+        test.setFailureProperty(failureProperty);
+        test.setErrorProperty(errorProperty);
+        test.setSkipNonTests(isSkipNonTests());
+        Enumeration list = this.formatters.elements();
+        while (list.hasMoreElements()) {
+            test.addFormatter((FormatterElement) list.nextElement());
+        }
+        return test;
+    }
+
 }

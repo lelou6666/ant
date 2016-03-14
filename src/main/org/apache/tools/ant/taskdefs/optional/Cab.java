@@ -1,136 +1,112 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 1999 The Apache Software Foundation.  All rights 
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer. 
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:  
- *       "This product includes software developed by the 
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written 
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.taskdefs.optional;
 
-import org.apache.tools.ant.*;
-import org.apache.tools.ant.taskdefs.*;
-import org.apache.tools.ant.types.*;
-
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Enumeration;
-import java.util.StringTokenizer;
 import java.util.Vector;
-import java.util.Random;
-import java.text.DecimalFormat;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.DirectoryScanner;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.taskdefs.ExecTask;
+import org.apache.tools.ant.taskdefs.Execute;
+import org.apache.tools.ant.taskdefs.LogOutputStream;
+import org.apache.tools.ant.taskdefs.MatchingTask;
+import org.apache.tools.ant.taskdefs.StreamPumper;
+import org.apache.tools.ant.taskdefs.condition.Os;
+import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.util.FileUtils;
+
 
 /**
  * Create a CAB archive.
  *
- * @author Roger Vaughn <a href="mailto:rvaughn@seaconinc.com">rvaughn@seaconinc.com</a>
  */
 
 public class Cab extends MatchingTask {
-
+    private static final int DEFAULT_RESULT = -99;
     private File cabFile;
     private File baseDir;
     private Vector filesets = new Vector();
     private boolean doCompress = true;
     private boolean doVerbose = false;
     private String cmdOptions;
-    
+
+    // CheckStyle:VisibilityModifier OFF - bc
     protected String archiveType = "cab";
+    // CheckStyle:VisibilityModifier ON
 
-    private static String myos;
-    private static boolean isWindows;
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
-    static {
-        myos = System.getProperty("os.name");
-        isWindows = myos.toLowerCase().indexOf("windows") >= 0;
-    }
-    
     /**
-     * This is the name/location of where to 
-     * create the .cab file.
+     * The name/location of where to create the .cab file.
+     * @param cabFile the location of the cab file.
      */
     public void setCabfile(File cabFile) {
         this.cabFile = cabFile;
     }
-    
+
     /**
-     * This is the base directory to look in for 
-     * things to cab.
+     * Base directory to look in for files to CAB.
+     * @param baseDir base directory for files to cab.
      */
     public void setBasedir(File baseDir) {
         this.baseDir = baseDir;
     }
 
     /**
-     * Sets whether we want to compress the files or only store them.
+     * If true, compress the files otherwise only store them.
+     * @param compress a <code>boolean</code> value.
      */
     public void setCompress(boolean compress) {
         doCompress = compress;
     }
 
     /**
-     * Sets whether we want to see or suppress cabarc output.
+     * If true, display cabarc output.
+     * @param verbose a <code>boolean</code> value.
      */
     public void setVerbose(boolean verbose) {
         doVerbose = verbose;
     }
 
     /**
-     * Sets additional cabarc options that aren't supported directly.
+     * Sets additional cabarc options that are not supported directly.
+     * @param options cabarc command line options.
      */
     public void setOptions(String options) {
         cmdOptions = options;
     }
 
     /**
-     * Adds a set of files (nested fileset attribute).
+     * Adds a set of files to archive.
+     * @param set a set of files to archive.
      */
     public void addFileset(FileSet set) {
+        if (filesets.size() > 0) {
+            throw new BuildException("Only one nested fileset allowed");
+        }
         filesets.addElement(set);
     }
 
@@ -139,206 +115,243 @@ public class Cab extends MatchingTask {
      * task-cancelling exceptions".  It feels too much like programming
      * for side-effects to me...
      */
+    /**
+     * Check if the attributes and nested elements are correct.
+     * @throws BuildException on error.
+     */
     protected void checkConfiguration() throws BuildException {
-        if (baseDir == null) {
-            throw new BuildException("basedir attribute must be set!");
+        if (baseDir == null && filesets.size() == 0) {
+            throw new BuildException("basedir attribute or one "
+                                     + "nested fileset is required!",
+                                     getLocation());
         }
-        if (!baseDir.exists()) {
-            throw new BuildException("basedir does not exist!");
+        if (baseDir != null && !baseDir.exists()) {
+            throw new BuildException("basedir does not exist!", getLocation());
+        }
+        if (baseDir != null && filesets.size() > 0) {
+            throw new BuildException(
+                "Both basedir attribute and a nested fileset is not allowed");
         }
         if (cabFile == null) {
-            throw new BuildException("cabfile attribute must be set!");
+            throw new BuildException("cabfile attribute must be set!",
+                                     getLocation());
         }
     }
 
     /**
      * Create a new exec delegate.  The delegate task is populated so that
      * it appears in the logs to be the same task as this one.
+     * @return the delegate.
+     * @throws BuildException on error.
      */
-    protected ExecTask createExec() throws BuildException
-    {
-        ExecTask exec = (ExecTask)project.createTask("exec");
-        exec.setOwningTarget(this.getOwningTarget());
-        exec.setTaskName(this.getTaskName());
-        exec.setDescription(this.getDescription());
-
+    protected ExecTask createExec() throws BuildException {
+        ExecTask exec = new ExecTask(this);
         return exec;
     }
 
     /**
      * Check to see if the target is up to date with respect to input files.
+     * @param files the list of files to check.
      * @return true if the cab file is newer than its dependents.
      */
-    protected boolean isUpToDate(Vector files)
-    {
+    protected boolean isUpToDate(Vector files) {
         boolean upToDate = true;
-        for (int i=0; i<files.size() && upToDate; i++)
-        {
+        final int size = files.size();
+        for (int i = 0; i < size && upToDate; i++) {
             String file = files.elementAt(i).toString();
-            if (new File(baseDir,file).lastModified() > 
-                cabFile.lastModified())
+            if (FILE_UTILS.resolveFile(baseDir, file).lastModified()
+                    > cabFile.lastModified()) {
                 upToDate = false;
+            }
         }
         return upToDate;
     }
 
     /**
-     * Create the cabarc command line to use.
-     */
-    protected Commandline createCommand(File listFile)
-    {
-        Commandline command = new Commandline();
-        command.setExecutable("cabarc");
-        command.createArgument().setValue("-r");
-        command.createArgument().setValue("-p");
-
-        if (!doCompress)
-        {
-            command.createArgument().setValue("-m");
-            command.createArgument().setValue("none");
-        }
-
-        if (cmdOptions != null)
-        {
-            command.createArgument().setValue(cmdOptions);
-        }
-        
-        command.createArgument().setValue("n");
-        command.createArgument().setFile(cabFile);
-        command.createArgument().setValue("@" + listFile.getAbsolutePath());
-
-        return command;
-    }
-
-    private static int counter = new Random().nextInt() % 100000;
-    protected File createTempFile(String prefix, String suffix)
-    {
-        if (suffix == null)
-        {
-            suffix = ".tmp";
-        }
-
-        String name = prefix +
-            new DecimalFormat("#####").format(new Integer(counter++)) +
-            suffix;
-
-        String tmpdir = System.getProperty("java.io.tmpdir");
-
-        // java.io.tmpdir is not present in 1.1
-        if (tmpdir == null)
-            return new File(name);
-        else
-            return new File(tmpdir, name);
-    }
-
-    /**
      * Creates a list file.  This temporary file contains a list of all files
      * to be included in the cab, one file per line.
+     *
+     * <p>This method expects to only be called on Windows and thus
+     * quotes the file names.</p>
+     * @param files the list of files to use.
+     * @return the list file created.
+     * @throws IOException if there is an error.
      */
     protected File createListFile(Vector files)
-        throws IOException
-    {
-        File listFile = createTempFile("ant", null);
-        
-        PrintWriter writer = new PrintWriter(new FileOutputStream(listFile));
+        throws IOException {
+        File listFile = FILE_UTILS.createTempFile("ant", "", null, true, true);
 
-        for (int i = 0; i < files.size(); i++)
-        {
-            writer.println(files.elementAt(i).toString());
+        BufferedWriter writer = null;
+        try {
+            writer = new BufferedWriter(new FileWriter(listFile));
+
+            final int size = files.size();
+            for (int i = 0; i < size; i++) {
+                writer.write('\"' + files.elementAt(i).toString() + '\"');
+                writer.newLine();
+            }
+        } finally {
+            FileUtils.close(writer);
         }
-        writer.close();
 
         return listFile;
     }
 
     /**
      * Append all files found by a directory scanner to a vector.
+     * @param files the vector to append the files to.
+     * @param ds the scanner to get the files from.
      */
-    protected void appendFiles(Vector files, DirectoryScanner ds)
-    {
+    protected void appendFiles(Vector files, DirectoryScanner ds) {
         String[] dsfiles = ds.getIncludedFiles();
 
-        for (int i = 0; i < dsfiles.length; i++)
-        {
+        for (int i = 0; i < dsfiles.length; i++) {
             files.addElement(dsfiles[i]);
         }
     }
 
     /**
      * Get the complete list of files to be included in the cab.  Filenames
-     * are gathered from filesets if any have been added, otherwise from the
+     * are gathered from the fileset if it has been added, otherwise from the
      * traditional include parameters.
+     * @return the list of files.
+     * @throws BuildException if there is an error.
      */
-    protected Vector getFileList() throws BuildException
-    {
+    protected Vector getFileList() throws BuildException {
         Vector files = new Vector();
 
-        if (filesets.size() == 0)
-        {
+        if (baseDir != null) {
             // get files from old methods - includes and nested include
             appendFiles(files, super.getDirectoryScanner(baseDir));
-        }
-        else
-        {
-            // get files from filesets
-            for (int i = 0; i < filesets.size(); i++)
-            {
-                FileSet fs = (FileSet) filesets.elementAt(i);
-                if (fs != null)
-                {
-                    appendFiles(files, fs.getDirectoryScanner(project));
-                }
-            }
+        } else {
+            FileSet fs = (FileSet) filesets.elementAt(0);
+            baseDir = fs.getDir();
+            appendFiles(files, fs.getDirectoryScanner(getProject()));
         }
 
         return files;
     }
 
+    /**
+     * execute this task.
+     * @throws BuildException on error.
+     */
     public void execute() throws BuildException {
-        // we must be on Windows to continue
-        if (!isWindows)
-        {
-            log("cannot run on non-Windows platforms: " + myos,
-                Project.MSG_VERBOSE);
-            return;
-        }
-        
+
         checkConfiguration();
 
         Vector files = getFileList();
-        
+
         // quick exit if the target is up to date
-        if (isUpToDate(files)) return;
+        if (isUpToDate(files)) {
+            return;
+        }
 
-        log("Building "+ archiveType +": "+ cabFile.getAbsolutePath());
+        log("Building " + archiveType + ": " + cabFile.getAbsolutePath());
 
-        try {
-            File listFile = createListFile(files);
-            ExecTask exec = createExec();
-            File outFile = null;
-            
-            // die if cabarc fails
-            exec.setFailonerror(true);
-            exec.setDir(baseDir);
-            
-            if (!doVerbose)
-            {
-                outFile = createTempFile("ant", null);
-                exec.setOutput(outFile);
+        if (!Os.isFamily("windows")) {
+            log("Using listcab/libcabinet", Project.MSG_VERBOSE);
+
+            StringBuffer sb = new StringBuffer();
+
+            Enumeration fileEnum = files.elements();
+
+            while (fileEnum.hasMoreElements()) {
+                sb.append(fileEnum.nextElement()).append("\n");
             }
-                
-            exec.setCommand(createCommand(listFile));
-            exec.execute();
+            sb.append("\n").append(cabFile.getAbsolutePath()).append("\n");
 
-            if (outFile != null)
-            {
-                outFile.delete();
+            try {
+                Process p = Execute.launch(getProject(),
+                                           new String[] {"listcab"}, null,
+                                           baseDir != null ? baseDir
+                                                   : getProject().getBaseDir(),
+                                           true);
+                OutputStream out = p.getOutputStream();
+
+                // Create the stream pumpers to forward listcab's stdout and stderr to the log
+                // note: listcab is an interactive program, and issues prompts for every new line.
+                //       Therefore, make it show only with verbose logging turned on.
+                LogOutputStream outLog = new LogOutputStream(this, Project.MSG_VERBOSE);
+                LogOutputStream errLog = new LogOutputStream(this, Project.MSG_ERR);
+                StreamPumper    outPump = new StreamPumper(p.getInputStream(), outLog);
+                StreamPumper    errPump = new StreamPumper(p.getErrorStream(), errLog);
+
+                // Pump streams asynchronously
+                (new Thread(outPump)).start();
+                (new Thread(errPump)).start();
+
+                out.write(sb.toString().getBytes());
+                out.flush();
+                out.close();
+
+                // A wild default for when the thread is interrupted
+                int result = DEFAULT_RESULT;
+
+                try {
+                    // Wait for the process to finish
+                    result = p.waitFor();
+
+                    // Wait for the end of output and error streams
+                    outPump.waitFor();
+                    outLog.close();
+                    errPump.waitFor();
+                    errLog.close();
+                } catch (InterruptedException ie) {
+                    log("Thread interrupted: " + ie);
+                }
+
+                // Informative summary message in case of errors
+                if (Execute.isFailure(result)) {
+                    log("Error executing listcab; error code: " + result);
+                }
+            } catch (IOException ex) {
+                String msg = "Problem creating " + cabFile + " " + ex.getMessage();
+                throw new BuildException(msg, getLocation());
             }
-            
-            listFile.delete();
-        } catch (IOException ioe) {
-            String msg = "Problem creating " + cabFile + " " + ioe.getMessage();
-            throw new BuildException(msg);
+        } else {
+            try {
+                File listFile = createListFile(files);
+                ExecTask exec = createExec();
+                File outFile = null;
+
+                // die if cabarc fails
+                exec.setFailonerror(true);
+                exec.setDir(baseDir);
+
+                if (!doVerbose) {
+                    outFile = FILE_UTILS.createTempFile("ant", "", null, true, true);
+                    exec.setOutput(outFile);
+                }
+
+                exec.setExecutable("cabarc");
+                exec.createArg().setValue("-r");
+                exec.createArg().setValue("-p");
+
+                if (!doCompress) {
+                    exec.createArg().setValue("-m");
+                    exec.createArg().setValue("none");
+                }
+
+                if (cmdOptions != null) {
+                    exec.createArg().setLine(cmdOptions);
+                }
+
+                exec.createArg().setValue("n");
+                exec.createArg().setFile(cabFile);
+                exec.createArg().setValue("@" + listFile.getAbsolutePath());
+
+                exec.execute();
+
+                if (outFile != null) {
+                    outFile.delete();
+                }
+
+                listFile.delete();
+            } catch (IOException ioe) {
+                String msg = "Problem creating " + cabFile + " " + ioe.getMessage();
+                throw new BuildException(msg, getLocation());
+            }
         }
     }
 }

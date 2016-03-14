@@ -1,89 +1,81 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.*;
-import org.apache.tools.ant.types.Commandline;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.Task;
+import org.apache.tools.ant.types.Commandline;
+
 /**
- * Task as a layer on top of patch. Patch applies a diff file to an original.
+ * Patches a file by applying a 'diff' file to it; requires "patch" to be
+ * on the execution path.
  *
- * @author <a href="mailto:stefan.bodewig@megabit.net">Stefan Bodewig</a>
+ * @since Ant 1.1
+ *
+ * @ant.task category="utility"
  */
 public class Patch extends Task {
 
     private File originalFile;
+    private File directory;
     private boolean havePatchfile = false;
     private Commandline cmd = new Commandline();
 
     /**
-     * The file to patch.
+     * Halt on error return value from patch invocation.
+     */
+    private boolean failOnError = false;
+
+    /**
+     * The file to patch; optional if it can be inferred from
+     * the diff file
+     * @param file the file to patch
      */
     public void setOriginalfile(File file) {
         originalFile = file;
     }
 
     /**
-     * The file containing the diff output.
+     * The name of a file to send the output to, instead of patching
+     * the file(s) in place; optional.
+     * @param file the file to send the output to
+     * @since Ant 1.6
+     */
+    public void setDestfile(File file) {
+        if (file != null) {
+            cmd.createArgument().setValue("-o");
+            cmd.createArgument().setFile(file);
+        }
+    }
+
+    /**
+     * The file containing the diff output; required.
+     * @param file the file containing the diff output
      */
     public void setPatchfile(File file) {
         if (!file.exists()) {
-            throw new BuildException("patchfile "+file+" doesn\'t exist", 
-                                     location);
+            throw new BuildException("patchfile " + file + " doesn\'t exist",
+                                     getLocation());
         }
         cmd.createArgument().setValue("-i");
         cmd.createArgument().setFile(file);
@@ -91,7 +83,8 @@ public class Patch extends Task {
     }
 
     /**
-     * Shall patch write backups.
+     * flag to create backups; optional, default=false
+     * @param backups if true create backups
      */
     public void setBackups(boolean backups) {
         if (backups) {
@@ -100,7 +93,8 @@ public class Patch extends Task {
     }
 
     /**
-     * Ignore whitespace differences.
+     * flag to ignore whitespace differences; default=false
+     * @param ignore if true ignore whitespace differences
      */
     public void setIgnorewhitespace(boolean ignore) {
         if (ignore) {
@@ -113,16 +107,19 @@ public class Patch extends Task {
      * from filenames.
      *
      * <p>patch's <i>-p</i> option.
+     * @param num number of lines to strip
+     * @exception BuildException if num is &lt; 0, or other errors
      */
     public void setStrip(int num) throws BuildException {
         if (num < 0) {
-            throw new BuildException("strip has to be >= 0", location);
+            throw new BuildException("strip has to be >= 0", getLocation());
         }
-        cmd.createArgument().setValue("-p"+num);
+        cmd.createArgument().setValue("-p" + num);
     }
 
     /**
-     * Work silently unless an error occurs.
+     * Work silently unless an error occurs; optional, default=false
+     * @param q if true suppress set the -s option on the patch command
      */
     public void setQuiet(boolean q) {
         if (q) {
@@ -131,7 +128,9 @@ public class Patch extends Task {
     }
 
     /**
-     * Assume patch was created with old and new files swapped.
+     * Assume patch was created with old and new files swapped; optional,
+     * default=false
+     * @param r if true set the -R option on the patch command
      */
     public void setReverse(boolean r) {
         if (r) {
@@ -139,28 +138,78 @@ public class Patch extends Task {
         }
     }
 
+    /**
+     * The directory to run the patch command in, defaults to the
+     * project's base directory.
+     * @param directory the directory to run the patch command in
+     * @since Ant 1.5
+     */
+    public void setDir(File directory) {
+        this.directory = directory;
+    }
+
+    /**
+     * If <code>true</code>, stop the build process if the patch command
+     * exits with an error status.
+     * @param value <code>true</code> if it should halt, otherwise
+     * <code>false</code>. The default is <code>false</code>.
+     * @since Ant 1.8.0
+     */
+    public void setFailOnError(boolean value) {
+        failOnError = value;
+    }
+
+    private static final String PATCH = "patch";
+
+    /**
+     * execute patch
+     * @throws BuildException when it all goes a bit pear shaped
+     */
     public void execute() throws BuildException {
         if (!havePatchfile) {
-            throw new BuildException("patchfile argument is required", 
-                                     location);
-        } 
-        
-        Commandline toExecute = (Commandline)cmd.clone();
-        toExecute.setExecutable("patch");
+            throw new BuildException("patchfile argument is required",
+                                     getLocation());
+        }
+        Commandline toExecute = (Commandline) cmd.clone();
+        toExecute.setExecutable(PATCH);
 
         if (originalFile != null) {
             toExecute.createArgument().setFile(originalFile);
         }
 
         Execute exe = new Execute(new LogStreamHandler(this, Project.MSG_INFO,
-                                                       Project.MSG_WARN), 
+                                                       Project.MSG_WARN),
                                   null);
         exe.setCommandline(toExecute.getCommandline());
+
+        if (directory != null) {
+            if (directory.exists() && directory.isDirectory()) {
+                exe.setWorkingDirectory(directory);
+            } else if (!directory.isDirectory()) {
+                throw new BuildException(directory + " is not a directory.",
+                                         getLocation());
+            } else {
+                throw new BuildException("directory " + directory
+                                         + " doesn\'t exist", getLocation());
+            }
+        } else {
+            exe.setWorkingDirectory(getProject().getBaseDir());
+        }
+
+        log(toExecute.describeCommand(), Project.MSG_VERBOSE);
         try {
-            exe.execute();
+            int returncode = exe.execute();
+            if (Execute.isFailure(returncode)) {
+                String msg = "'" + PATCH + "' failed with exit code "
+                    + returncode;
+                if (failOnError) {
+                    throw new BuildException(msg);
+                } else {
+                    log(msg, Project.MSG_ERR);
+                }
+            }
         } catch (IOException e) {
-            throw new BuildException(e, location);
+            throw new BuildException(e, getLocation());
         }
     }
-
-}// Patch
+}

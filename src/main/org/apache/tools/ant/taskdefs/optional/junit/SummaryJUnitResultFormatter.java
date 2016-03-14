@@ -1,62 +1,28 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.taskdefs.optional.junit;
 
-import java.text.NumberFormat;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.text.NumberFormat;
+
+import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 
 import org.apache.tools.ant.BuildException;
@@ -64,10 +30,12 @@ import org.apache.tools.ant.BuildException;
 /**
  * Prints short summary output of the test to Ant's logging system.
  *
- * @author <a href="mailto:stefan.bodewig@megabit.net">Stefan Bodewig</a>
  */
- 
-public class SummaryJUnitResultFormatter implements JUnitResultFormatter {
+
+public class SummaryJUnitResultFormatter
+    implements JUnitResultFormatter, JUnitTaskMirror.SummaryJUnitResultFormatterMirror {
+
+    private static final double ONE_SECOND = 1000.0;
 
     /**
      * Formatter for timings.
@@ -78,59 +46,167 @@ public class SummaryJUnitResultFormatter implements JUnitResultFormatter {
      */
     private OutputStream out;
 
+    private boolean withOutAndErr = false;
+    private String systemOutput = null;
+    private String systemError = null;
+
     /**
      * Empty
      */
-    public SummaryJUnitResultFormatter() {}
+    public SummaryJUnitResultFormatter() {
+    }
+
+    /**
+     *  Insures that a line of log output is written and flushed as a single
+     *  operation, to prevent lines from being spliced into other lines.
+     *  (Hopefully this solves the issue of run on lines -
+     *  [junit] Tests Run: 2 Failures: 2 [junit] Tests run: 5...
+     *  synchronized doesn't seem to be to harsh a penalty since it only
+     *  occurs twice per test - at the beginning and end.  Note that message
+     *  construction occurs outside the locked block.
+     *
+     *  @param b data to be written as an unbroken block
+     */
+    private synchronized void writeOutputLine(byte[] b) {
+        try {
+            out.write(b);
+            out.flush();
+        } catch (IOException ioex) {
+            throw new BuildException("Unable to write summary output", ioex);
+        }
+    }
+
+    /**
+     * The testsuite started.
+     * @param suite the testsuite.
+     */
+    public void startTestSuite(JUnitTest suite) {
+        String newLine = System.getProperty("line.separator");
+        StringBuffer sb = new StringBuffer("Running ");
+        int antThreadID = suite.getThread();
+
+        sb.append(suite.getName());
+        /* only write thread id in multi-thread mode so default old way doesn't change output */
+        if (antThreadID > 0) {
+            sb.append(" in thread ");
+            sb.append(antThreadID);
+        }
+        sb.append(newLine);
+        writeOutputLine(sb.toString().getBytes());
+    }
     /**
      * Empty
+     * @param t not used.
      */
-    public void startTestSuite(JUnitTest suite) {}
+    public void startTest(Test t) {
+    }
     /**
      * Empty
+     * @param test not used.
      */
-    public void startTest(Test t) {}
+    public void endTest(Test test) {
+    }
     /**
      * Empty
+     * @param test not used.
+     * @param t not used.
      */
-    public void endTest(Test test) {}
+    public void addFailure(Test test, Throwable t) {
+    }
+    /**
+     * Interface TestListener for JUnit &gt; 3.4.
+     *
+     * <p>A Test failed.
+     * @param test not used.
+     * @param t not used.
+     */
+    public void addFailure(Test test, AssertionFailedError t) {
+        addFailure(test, (Throwable) t);
+    }
     /**
      * Empty
+     * @param test not used.
+     * @param t not used.
      */
-    public void addFailure(Test test, Throwable t) {}
-    /**
-     * Empty
-     */
-    public void addError(Test test, Throwable t) {}
-    
+    public void addError(Test test, Throwable t) {
+    }
+
+    /** {@inheritDoc}. */
     public void setOutput(OutputStream out) {
         this.out = out;
     }
 
+    /** {@inheritDoc}. */
+    public void setSystemOutput(String out) {
+        systemOutput = out;
+    }
+
+    /** {@inheritDoc}. */
+    public void setSystemError(String err) {
+        systemError = err;
+    }
+
+    /**
+     * Should the output to System.out and System.err be written to
+     * the summary.
+     * @param value if true write System.out and System.err to the summary.
+     */
+    public void setWithOutAndErr(boolean value) {
+        withOutAndErr = value;
+    }
+
     /**
      * The whole testsuite ended.
+     * @param suite the testsuite.
+     * @throws BuildException if there is an error.
      */
     public void endTestSuite(JUnitTest suite) throws BuildException {
+        String newLine = System.getProperty("line.separator");
         StringBuffer sb = new StringBuffer("Tests run: ");
         sb.append(suite.runCount());
         sb.append(", Failures: ");
         sb.append(suite.failureCount());
         sb.append(", Errors: ");
         sb.append(suite.errorCount());
+        sb.append(", Skipped: ");
+        sb.append(suite.skipCount());
         sb.append(", Time elapsed: ");
-        sb.append(nf.format(suite.getRunTime()/1000.0));
+        sb.append(nf.format(suite.getRunTime() / ONE_SECOND));
         sb.append(" sec");
-        sb.append(System.getProperty("line.separator"));
+
+        /* class name needed with multi-threaded execution because
+           results line may not appear immediately below start line.
+           only write thread id, class name in multi-thread mode so
+           the line still looks as much like the old line as possible. */
+        if (suite.getThread() > 0) {
+            sb.append(", Thread: ");
+            sb.append(suite.getThread());
+            sb.append(", Class: ");
+            sb.append(suite.getName());
+        }
+        sb.append(newLine);
+
+        if (withOutAndErr) {
+            if (systemOutput != null && systemOutput.length() > 0) {
+                sb.append("Output:").append(newLine).append(systemOutput)
+                    .append(newLine);
+            }
+
+            if (systemError != null && systemError.length() > 0) {
+                sb.append("Error: ").append(newLine).append(systemError)
+                    .append(newLine);
+            }
+        }
+
         try {
-            out.write(sb.toString().getBytes());
-            out.flush();
-        } catch (IOException ioex) {
-            throw new BuildException("Unable to write summary output", ioex);
+            writeOutputLine(sb.toString().getBytes());
         } finally {
             if (out != System.out && out != System.err) {
                 try {
                     out.close();
-                } catch (IOException e) {}
+                } catch (IOException e) {
+                    // ignore
+                }
             }
         }
     }

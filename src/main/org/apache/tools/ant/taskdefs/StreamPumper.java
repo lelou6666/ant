@@ -1,90 +1,111 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
-
 package org.apache.tools.ant.taskdefs;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.apache.tools.ant.util.FileUtils;
+
 /**
  * Copies all data from an input stream to an output stream.
  *
- * @author thomas.haas@softwired-inc.com
+ * @since Ant 1.2
  */
 public class StreamPumper implements Runnable {
 
-    // TODO: make SIZE and SLEEP instance variables.
-    // TODO: add a status flag to note if an error occured in run.
+    private static final int SMALL_BUFFER_SIZE = 128;
 
-    private final static int SLEEP = 5;
-    private final static int SIZE = 128;
-    private InputStream is;
-    private OutputStream os;
+    private final InputStream is;
+    private final OutputStream os;
+    private volatile boolean finish;
+    private volatile boolean finished;
+    private final boolean closeWhenExhausted;
+    private boolean autoflush = false;
+    private Exception exception = null;
+    private int bufferSize = SMALL_BUFFER_SIZE;
+    private boolean started = false;
+    private final boolean useAvailable;
+
+    /**
+     * Create a new StreamPumper.
+     *
+     * @param is input stream to read data from
+     * @param os output stream to write data to.
+     * @param closeWhenExhausted if true, the output stream will be closed when
+     *        the input is exhausted.
+     */
+    public StreamPumper(InputStream is, OutputStream os, boolean closeWhenExhausted) {
+        this(is, os, closeWhenExhausted, false);
+    }
 
 
     /**
-     * Create a new stream pumper.
+     * Create a new StreamPumper.
+     *
+     * <p><b>Note:</b> If you set useAvailable to true, you must
+     * explicitly invoke {@link #stop stop} or interrupt the
+     * corresponding Thread when you are done or the run method will
+     * never finish on some JVMs (namely those where available returns
+     * 0 on a closed stream).  Setting it to true may also impact
+     * performance negatively.  This flag should only be set to true
+     * if you intend to stop the pumper before the input stream gets
+     * closed.</p>
+     *
+     * @param is input stream to read data from
+     * @param os output stream to write data to.
+     * @param closeWhenExhausted if true, the output stream will be closed when
+     *        the input is exhausted.
+     * @param useAvailable whether the pumper should use {@link
+     *        java.io.InputStream#available available} to determine
+     *        whether input is ready, thus trying to emulate
+     *        non-blocking behavior.
+     *
+     * @since Ant 1.8.0
+     */
+    public StreamPumper(InputStream is, OutputStream os,
+                        boolean closeWhenExhausted,
+                        boolean useAvailable) {
+        this.is = is;
+        this.os = os;
+        this.closeWhenExhausted = closeWhenExhausted;
+        this.useAvailable = useAvailable;
+    }
+
+    /**
+     * Create a new StreamPumper.
      *
      * @param is input stream to read data from
      * @param os output stream to write data to.
      */
     public StreamPumper(InputStream is, OutputStream os) {
-        this.is = is;
-        this.os = os;
+        this(is, os, false);
     }
 
+    /**
+     * Set whether data should be flushed through to the output stream.
+     * @param autoflush if true, push through data; if false, let it be buffered
+     * @since Ant 1.6.3
+     */
+    /*package*/ void setAutoflush(boolean autoflush) {
+        this.autoflush = autoflush;
+    }
 
     /**
      * Copies data from the input stream to the output stream.
@@ -92,16 +113,140 @@ public class StreamPumper implements Runnable {
      * Terminates as soon as the input stream is closed or an error occurs.
      */
     public void run() {
-        final byte[] buf = new byte[SIZE];
+        synchronized (this) {
+            started = true;
+        }
+        finished = false;
+
+        final byte[] buf = new byte[bufferSize];
 
         int length;
         try {
-            while ((length = is.read(buf)) > 0) {
+            while (true) {
+                waitForInput(is);
+
+                if (finish || Thread.interrupted()) {
+                    break;
+                }
+
+                length = is.read(buf);
+                if (length <= 0 || Thread.interrupted()) {
+                    break;
+                }
                 os.write(buf, 0, length);
-                try {
-                    Thread.sleep(SLEEP);
-                } catch (InterruptedException e) {}
+                if (autoflush) {
+                    os.flush();
+                }
+                if (finish) {
+                    break;
+                }
             }
-        } catch(IOException e) {}
+            // On completion, drain any available data (which might be the first data available for quick executions)
+            if (finish) {
+                while((length = is.available()) > 0) {
+                    if (Thread.interrupted()) {
+                        break;
+                    }
+                    length = is.read(buf, 0, Math.min(length, buf.length));
+                    if (length <= 0) {
+                        break;
+                    }
+                    os.write(buf, 0, length);
+                }
+            }
+            os.flush();
+        } catch (InterruptedException ie) {
+            // likely PumpStreamHandler trying to stop us
+        } catch (Exception e) {
+            synchronized (this) {
+                exception = e;
+            }
+        } finally {
+            if (closeWhenExhausted) {
+                FileUtils.close(os);
+            }
+            finished = true;
+            finish = false;
+            synchronized (this) {
+                notifyAll();
+            }
+        }
     }
+
+    /**
+     * Tells whether the end of the stream has been reached.
+     * @return true is the stream has been exhausted.
+     */
+    public boolean isFinished() {
+        return finished;
+    }
+
+    /**
+     * This method blocks until the StreamPumper finishes.
+     * @throws InterruptedException if interrupted.
+     * @see #isFinished()
+     */
+    public synchronized void waitFor() throws InterruptedException {
+        while (!isFinished()) {
+            wait();
+        }
+    }
+
+    /**
+     * Set the size in bytes of the read buffer.
+     * @param bufferSize the buffer size to use.
+     * @throws IllegalStateException if the StreamPumper is already running.
+     */
+    public synchronized void setBufferSize(int bufferSize) {
+        if (started) {
+            throw new IllegalStateException("Cannot set buffer size on a running StreamPumper");
+        }
+        this.bufferSize = bufferSize;
+    }
+
+    /**
+     * Get the size in bytes of the read buffer.
+     * @return the int size of the read buffer.
+     */
+    public synchronized int getBufferSize() {
+        return bufferSize;
+    }
+
+    /**
+     * Get the exception encountered, if any.
+     * @return the Exception encountered.
+     */
+    public synchronized Exception getException() {
+        return exception;
+    }
+
+    /**
+     * Stop the pumper as soon as possible.
+     * Note that it may continue to block on the input stream
+     * but it will really stop the thread as soon as it gets EOF
+     * or any byte, and it will be marked as finished.
+     * @since Ant 1.6.3
+     */
+    /*package*/ synchronized void stop() {
+        finish = true;
+        notifyAll();
+    }
+
+    private static final long POLL_INTERVAL = 100;
+
+    private void waitForInput(InputStream is)
+        throws IOException, InterruptedException {
+        if (useAvailable) {
+            while (!finish && is.available() == 0) {
+                if (Thread.interrupted()) {
+                    throw new InterruptedException();
+                }
+
+                synchronized (this) {
+                    this.wait(POLL_INTERVAL);
+                }
+            }
+        }
+    }
+
 }

@@ -1,169 +1,244 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 1999 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.*;
-import org.apache.tools.tar.*;
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.zip.GZIPInputStream;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.util.FileNameMapper;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.bzip2.CBZip2InputStream;
+import org.apache.tools.tar.TarEntry;
+import org.apache.tools.tar.TarInputStream;
+
+
 
 /**
  * Untar a file.
+ * <p>PatternSets are used to select files to extract
+ * <I>from</I> the archive.  If no patternset is used, all files are extracted.
+ * </p>
+ * <p>FileSets may be used to select archived files
+ * to perform unarchival upon.
+ * </p>
+ * <p>File permissions will not be restored on extracted files.</p>
+ * <p>The untar task recognizes the long pathname entries used by GNU tar.<p>
  *
- * Heavily based on the Expand task.
+ * @since Ant 1.1
  *
- * @author <a href="mailto:stefan.bodewig@megabit.net">Stefan Bodewig</a>
+ * @ant.task category="packaging"
  */
-public class Untar extends Task {
-    private String dest; // req
-    private String source; // req
+public class Untar extends Expand {
+    /**
+     *   compression method
+     */
+    private UntarCompressionMethod compression = new UntarCompressionMethod();
+
+    public Untar() {
+        super(null);
+    }
 
     /**
-     * Do the work.
+     * Set decompression algorithm to use; default=none.
      *
-     * @exception BuildException Thrown in unrecoverable error.
+     * Allowable values are
+     * <ul>
+     *   <li>none - no compression
+     *   <li>gzip - Gzip compression
+     *   <li>bzip2 - Bzip2 compression
+     * </ul>
+     *
+     * @param method compression method
      */
-    public void execute() throws BuildException {
+    public void setCompression(UntarCompressionMethod method) {
+        compression = method;
+    }
 
-        Touch touch = (Touch) project.createTask("touch");
-        touch.setOwningTarget(target);
-        touch.setTaskName(getTaskName());
-        touch.setLocation(getLocation());
-                    
-        File srcF=project.resolveFile(source);
+    /**
+     * No unicode extra fields in tar.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setScanForUnicodeExtraFields(boolean b) {
+        throw new BuildException("The " + getTaskName()
+                                 + " task doesn't support the encoding"
+                                 + " attribute", getLocation());
+    }
 
+    /**
+     * @see Expand#expandFile(FileUtils, File, File)
+     */
+    /** {@inheritDoc} */
+    protected void expandFile(FileUtils fileUtils, File srcF, File dir) {
+        FileInputStream fis = null;
+        if (!srcF.exists()) {
+            throw new BuildException("Unable to untar "
+                    + srcF
+                    + " as the file does not exist",
+                    getLocation());
+        }
+        try {
+            fis = new FileInputStream(srcF);
+            expandStream(srcF.getPath(), fis, dir);
+        } catch (IOException ioe) {
+            throw new BuildException("Error while expanding " + srcF.getPath()
+                                     + "\n" + ioe.toString(),
+                                     ioe, getLocation());
+        } finally {
+            FileUtils.close(fis);
+        }
+    }
+
+    /**
+     * This method is to be overridden by extending unarchival tasks.
+     *
+     * @param srcR      the source resource
+     * @param dir       the destination directory
+     * @since Ant 1.7
+     */
+    protected void expandResource(Resource srcR, File dir) {
+        if (!srcR.isExists()) {
+            throw new BuildException("Unable to untar "
+                                     + srcR.getName()
+                                     + " as the it does not exist",
+                                     getLocation());
+        }
+
+        InputStream i = null;
+        try {
+            i = srcR.getInputStream();
+            expandStream(srcR.getName(), i, dir);
+        } catch (IOException ioe) {
+            throw new BuildException("Error while expanding " + srcR.getName(),
+                                     ioe, getLocation());
+        } finally {
+            FileUtils.close(i);
+        }
+    }
+
+    /**
+     * @since Ant 1.7
+     */
+    private void expandStream(String name, InputStream stream, File dir)
+        throws IOException {
         TarInputStream tis = null;
         try {
-            if (source == null) {
-                throw new BuildException("No source specified", location);
-            }
-            if (!srcF.exists()) {
-                throw new BuildException("source "+srcF+" doesn't exist",
-                                         location);
-            }
-
-            if (dest == null) {
-                throw new BuildException("No destination specified", location);
-            }
-            File dir=project.resolveFile(dest);
-
-            log("Expanding: " + srcF + " into " + dir, Project.MSG_INFO);
-            tis = new TarInputStream(new FileInputStream(srcF));
+            tis =
+                new TarInputStream(compression.decompress(name,
+                                                          new BufferedInputStream(stream)),
+                                   getEncoding());
+            log("Expanding: " + name + " into " + dir, Project.MSG_INFO);
             TarEntry te = null;
-
+            boolean empty = true;
+            FileNameMapper mapper = getMapper();
             while ((te = tis.getNextEntry()) != null) {
-                try {
-                    File f = new File(dir, project.translatePath(te.getName()));
-                    log("expand-file " + te.getName(), Project.MSG_VERBOSE );
-                    // create intermediary directories - sometimes tar don't add them
-                    File dirF=new File(f.getParent());
-                    dirF.mkdirs();
+                empty = false;
+                extractFile(FileUtils.getFileUtils(), null, dir, tis,
+                            te.getName(), te.getModTime(),
+                            te.isDirectory(), mapper);
+            }
+            if (empty && getFailOnEmptyArchive()) {
+                throw new BuildException("archive '" + name + "' is empty");
+            }
+            log("expand complete", Project.MSG_VERBOSE);
+        } finally {
+            FileUtils.close(tis);
+        }
+    }
 
-                    if (te.isDirectory()) {
-                        f.mkdirs();
-                    } else {
-                        byte[] buffer = new byte[1024];
-                        int length = 0;
-                        FileOutputStream fos = new FileOutputStream(f);
+    /**
+     * Valid Modes for Compression attribute to Untar Task
+     *
+     */
+    public static final class UntarCompressionMethod
+        extends EnumeratedAttribute {
 
-                        while ((length = tis.read(buffer)) >= 0) {
-                            fos.write(buffer, 0, length);
+        // permissible values for compression attribute
+        /**
+         *  No compression
+         */
+        private static final String NONE = "none";
+        /**
+         *  GZIP compression
+         */
+        private static final String GZIP = "gzip";
+        /**
+         *  BZIP2 compression
+         */
+        private static final String BZIP2 = "bzip2";
+
+
+        /**
+         *  Constructor
+         */
+        public UntarCompressionMethod() {
+            super();
+            setValue(NONE);
+        }
+
+        /**
+         * Get valid enumeration values
+         *
+         * @return valid values
+         */
+        public String[] getValues() {
+            return new String[] {NONE, GZIP, BZIP2};
+        }
+
+        /**
+         *  This method wraps the input stream with the
+         *     corresponding decompression method
+         *
+         *  @param name provides location information for BuildException
+         *  @param istream input stream
+         *  @return input stream with on-the-fly decompression
+         *  @exception IOException thrown by GZIPInputStream constructor
+         *  @exception BuildException thrown if bzip stream does not
+         *     start with expected magic values
+         */
+        public InputStream decompress(final String name,
+                                       final InputStream istream)
+            throws IOException, BuildException {
+            final String v = getValue();
+            if (GZIP.equals(v)) {
+                return new GZIPInputStream(istream);
+            } else {
+                if (BZIP2.equals(v)) {
+                    final char[] magic = new char[] {'B', 'Z'};
+                    for (int i = 0; i < magic.length; i++) {
+                        if (istream.read() != magic[i]) {
+                            throw new BuildException(
+                                                     "Invalid bz2 file." + name);
                         }
-
-                        fos.close();
                     }
-
-                    if (project.getJavaVersion() != Project.JAVA_1_1) {
-                        touch.setFile(f);
-                        touch.setMillis(te.getModTime().getTime());
-                        touch.touch();
-                    }
-
-                } catch(FileNotFoundException ex) {
-                    log("FileNotFoundException: " + te.getName(),
-                        Project.MSG_WARN);
+                    return new CBZip2InputStream(istream);
                 }
             }
-        } catch (IOException ioe) {
-	    throw new BuildException("Error while expanding " + srcF.getPath(),
-                                     ioe, location);
-	} finally {
-	    if (tis != null) {
-	        try {
-	            tis.close();
-	        }
-	        catch (IOException e) {}
-	    }
-	}
-    }
-
-    /**
-     * Set the destination directory. File will be untared into the
-     * destination directory.
-     *
-     * @param d Path to the directory.
-     */
-    public void setDest(String d) {
-        this.dest=d;
-    }
-
-    /**
-     * Set the path to tar-file.
-     *
-     * @param s Path to tar-file.
-     */
-    public void setSrc(String s) {
-        this.source = s;
+            return istream;
+        }
     }
 }

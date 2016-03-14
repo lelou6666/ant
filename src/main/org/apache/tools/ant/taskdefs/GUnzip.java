@@ -1,123 +1,69 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 1999 The Apache Software Foundation.  All rights
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
 
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.*;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.zip.GZIPInputStream;
 
-import java.io.*;
-import java.util.zip.*;
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Expands a file that has been compressed with the GZIP
- * algorightm. Normally used to compress non-compressed archives such
+ * algorithm. Normally used to compress non-compressed archives such
  * as TAR files.
  *
- * @author Stefan Bodewig <a href="mailto:stefan.bodewig@megabit.net">stefan.bodewig@megabit.net</a>
+ * @since Ant 1.1
+ *
+ * @ant.task category="packaging"
  */
 
-public class GUnzip extends Task {
+public class GUnzip extends Unpack {
+    private static final int BUFFER_SIZE = 8 * 1024;
+    private static final String DEFAULT_EXTENSION = ".gz";
 
-    private File source;
-    private File dest;
-
-    public void setSrc(String src) {
-        source = project.resolveFile(src);
+    /**
+     * Get the default extension.
+     * @return the value ".gz"
+     */
+    protected String getDefaultExtension() {
+        return DEFAULT_EXTENSION;
     }
 
-    public void setDest(String dest) {
-        this.dest = project.resolveFile(dest);
-    }
-
-    public void execute() throws BuildException {
-        if (source == null) {
-            throw new BuildException("No source for gunzip specified", location);
-        }
-
-        if (!source.exists()) {
-            throw new BuildException("source doesn't exist", location);
-        }
-
-        if (source.isDirectory()) {
-            throw new BuildException("Cannot expand a directory", location);
-        }
-
-        if (dest == null) {
-            dest = new File(source.getParent());
-        }
-
-        if (dest.isDirectory()) {
-            String sourceName = source.getName();
-            int len = sourceName.length();
-            if (len > 3
-                && ".gz".equalsIgnoreCase(sourceName.substring(len-3))) {
-                dest = new File(dest, sourceName.substring(0, len-3));
-            } else {
-                dest = new File(dest, sourceName);
-            }
-        }
-
-        if (source.lastModified() > dest.lastModified()) {
-            log("Expanding "+ source.getAbsolutePath() + " to "
+    /**
+     * Implement the gunzipping.
+     */
+    protected void extract() {
+        if (srcResource.getLastModified() > dest.lastModified()) {
+            log("Expanding " + srcResource.getName() + " to "
                         + dest.getAbsolutePath());
 
             FileOutputStream out = null;
             GZIPInputStream zIn = null;
+            InputStream fis = null;
             try {
                 out = new FileOutputStream(dest);
-                zIn = new GZIPInputStream(new FileInputStream(source));
-                byte[] buffer = new byte[8 * 1024];
+                fis = srcResource.getInputStream();
+                zIn = new GZIPInputStream(fis);
+                byte[] buffer = new byte[BUFFER_SIZE];
                 int count = 0;
                 do {
                     out.write(buffer, 0, count);
@@ -125,19 +71,27 @@ public class GUnzip extends Task {
                 } while (count != -1);
             } catch (IOException ioe) {
                 String msg = "Problem expanding gzip " + ioe.getMessage();
-                throw new BuildException(msg, ioe, location);
+                throw new BuildException(msg, ioe, getLocation());
             } finally {
-                if (out != null) {
-                    try {
-                        out.close();
-                    } catch (IOException ioex) {}
-                }
-                if (zIn != null) {
-                    try {
-                        zIn.close();
-                    } catch (IOException ioex) {}
-                }
+                FileUtils.close(fis);
+                FileUtils.close(out);
+                FileUtils.close(zIn);
             }
         }
+    }
+
+    /**
+     * Whether this task can deal with non-file resources.
+     *
+     * <p>This implementation returns true only if this task is
+     * &lt;gunzip&gt;.  Any subclass of this class that also wants to
+     * support non-file resources needs to override this method.  We
+     * need to do so for backwards compatibility reasons since we
+     * can't expect subclasses to support resources.</p>
+     * @return true if this task supports non file resources.
+     * @since Ant 1.7
+     */
+    protected boolean supportsNonFileResources() {
+        return getClass().equals(GUnzip.class);
     }
 }

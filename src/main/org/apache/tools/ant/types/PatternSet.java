@@ -1,67 +1,34 @@
 /*
- * The Apache Software License, Version 1.1
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights 
- * reserved.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer. 
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution, if
- *    any, must include the following acknowlegement:  
- *       "This product includes software developed by the 
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowlegement may appear in the software itself,
- *    if and wherever such third-party acknowlegements normally appear.
- *
- * 4. The names "The Jakarta Project", "Tomcat", and "Apache Software
- *    Foundation" must not be used to endorse or promote products derived
- *    from this software without prior written permission. For written 
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
  */
-
 package org.apache.tools.ant.types;
 
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.BuildException;
-
-import java.io.*;
-import java.util.Enumeration;
-import java.util.Stack;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringTokenizer;
-import java.util.Vector;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.PropertyHelper;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Named collection of include/exclude tags.
@@ -69,56 +36,162 @@ import java.util.Vector;
  * <p>Moved out of MatchingTask to make it a standalone object that
  * could be referenced (by scripts for example).
  *
- * @author Arnout J. Kuiper <a href="mailto:ajkuiper@wxs.nl">ajkuiper@wxs.nl</a> 
- * @author Stefano Mazzocchi <a href="mailto:stefano@apache.org">stefano@apache.org</a>
- * @author Sam Ruby <a href="mailto:rubys@us.ibm.com">rubys@us.ibm.com</a>
- * @author Jon S. Stevens <a href="mailto:jon@clearink.com">jon@clearink.com</a>
- * @author <a href="mailto:stefan.bodewig@megabit.net">Stefan Bodewig</a> 
  */
-public class PatternSet extends DataType {
-    private Vector includeList = new Vector();
-    private Vector excludeList = new Vector();
-    
+public class PatternSet extends DataType implements Cloneable {
+    private List<NameEntry> includeList = new ArrayList<NameEntry>();
+    private List<NameEntry> excludeList = new ArrayList<NameEntry>();
+    private List<NameEntry> includesFileList = new ArrayList<NameEntry>();
+    private List<NameEntry> excludesFileList = new ArrayList<NameEntry>();
+
     /**
      * inner class to hold a name on list.  "If" and "Unless" attributes
-     * may be used to invalidate the entry based on the existence of a 
-     * property (typically set thru the use of the Available task).
+     * may be used to invalidate the entry based on the existence of a
+     * property (typically set thru the use of the Available task)
+     * or value of an expression.
      */
     public class NameEntry {
         private String name;
-        private String ifCond;
-        private String unlessCond;
+        private Object ifCond;
+        private Object unlessCond;
 
-        public void setName(String name) { 
-            this.name = name; 
+        /**
+         * Sets the name pattern.
+         *
+         * @param name The pattern string.
+         */
+        public void setName(String name) {
+            this.name = name;
         }
 
-        public void setIf(String cond) {
+        /**
+         * Sets the if attribute. This attribute and the "unless"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to false or no property of
+         *             its value is present, the name is invalid.
+         * @since Ant 1.8.0
+         */
+        public void setIf(Object cond) {
             ifCond = cond;
         }
 
-        public void setUnless(String cond) {
+        /**
+         * Sets the if attribute. This attribute and the "unless"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to false or no property of
+         *             its value is present, the name is invalid.
+         */
+        public void setIf(String cond) {
+            setIf((Object) cond);
+        }
+
+        /**
+         * Sets the unless attribute. This attribute and the "if"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to true or a property of
+         *             its value is present, the name is invalid.
+         * @since Ant 1.8.0
+         */
+        public void setUnless(Object cond) {
             unlessCond = cond;
         }
 
+        /**
+         * Sets the unless attribute. This attribute and the "if"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to true or a property of
+         *             its value is present, the name is invalid.
+         */
+        public void setUnless(String cond) {
+            setUnless((Object) cond);
+        }
+
+        /**
+         * @return the name attribute.
+         */
         public String getName() {
             return name;
         }
 
-        public String evalName(Project p) { 
-            return valid(p) ? name : null; 
+        /**
+         * This validates the name - checks the if and unless
+         * properties.
+         *
+         * @param p the current project, used to check the presence or
+         *          absence of a property.
+         * @return  the name attribute or null if the "if" or "unless"
+         *          properties are not/are set.
+         */
+        public String evalName(Project p) {
+            return valid(p) ? name : null;
         }
 
         private boolean valid(Project p) {
-            if (ifCond != null && p.getProperty(ifCond) == null) {
-                return false;
-            } else if (unlessCond != null && p.getProperty(unlessCond) != null) {
-                return false;
+            PropertyHelper ph = PropertyHelper.getPropertyHelper(p);
+            return ph.testIfCondition(ifCond)
+                && ph.testUnlessCondition(unlessCond);
+        }
+
+        /**
+         * @return a printable form of this object.
+         */
+        public String toString() {
+            StringBuffer buf = new StringBuffer();
+            if (name == null) {
+                buf.append("noname");
+            } else {
+                buf.append(name);
             }
-            return true;
+            if ((ifCond != null) || (unlessCond != null)) {
+                buf.append(":");
+                String connector = "";
+
+                if (ifCond != null) {
+                    buf.append("if->");
+                    buf.append(ifCond);
+                    connector = ";";
+                }
+                if (unlessCond != null) {
+                    buf.append(connector);
+                    buf.append("unless->");
+                    buf.append(unlessCond);
+                }
+            }
+            return buf.toString();
         }
     }
 
+    private static final class InvertedPatternSet extends PatternSet {
+        private InvertedPatternSet(PatternSet p) {
+            setProject(p.getProject());
+            addConfiguredPatternset(p);
+        }
+        public String[] getIncludePatterns(Project p) {
+            return super.getExcludePatterns(p);
+        }
+        public String[] getExcludePatterns(Project p) {
+            return super.getIncludePatterns(p);
+        }
+    }
+
+    /**
+     * Creates a new <code>PatternSet</code> instance.
+     */
     public PatternSet() {
         super();
     }
@@ -128,7 +201,9 @@ public class PatternSet extends DataType {
      * instance.
      *
      * <p>You must not set another attribute or nest elements inside
-     * this element if you make it a reference.</p> 
+     * this element if you make it a reference.</p>
+     * @param r the reference to another patternset.
+     * @throws BuildException on error.
      */
     public void setRefid(Reference r) throws BuildException {
         if (!includeList.isEmpty() || !excludeList.isEmpty()) {
@@ -138,7 +213,32 @@ public class PatternSet extends DataType {
     }
 
     /**
+     * This is a patternset nested element.
+     *
+     * @param p a configured patternset nested element.
+     */
+    public void addConfiguredPatternset(PatternSet p) {
+        if (isReference()) {
+            throw noChildrenAllowed();
+        }
+        String[] nestedIncludes = p.getIncludePatterns(getProject());
+        String[] nestedExcludes = p.getExcludePatterns(getProject());
+
+        if (nestedIncludes != null) {
+            for (int i = 0; i < nestedIncludes.length; i++) {
+                createInclude().setName(nestedIncludes[i]);
+            }
+        }
+        if (nestedExcludes != null) {
+            for (int i = 0; i < nestedExcludes.length; i++) {
+                createExclude().setName(nestedExcludes[i]);
+            }
+        }
+    }
+
+    /**
      * add a name entry on the include list
+     * @return a nested include element to be configured.
      */
     public NameEntry createInclude() {
         if (isReference()) {
@@ -146,9 +246,21 @@ public class PatternSet extends DataType {
         }
         return addPatternToList(includeList);
     }
-    
+
+    /**
+     * add a name entry on the include files list
+     * @return a nested includesfile element to be configured.
+     */
+    public NameEntry createIncludesFile() {
+        if (isReference()) {
+            throw noChildrenAllowed();
+        }
+        return addPatternToList(includesFileList);
+    }
+
     /**
      * add a name entry on the exclude list
+     * @return a nested exclude element to be configured.
      */
     public NameEntry createExclude() {
         if (isReference()) {
@@ -158,8 +270,19 @@ public class PatternSet extends DataType {
     }
 
     /**
-     * Sets the set of include patterns. Patterns may be separated by a comma
-     * or a space.
+     * add a name entry on the exclude files list
+     * @return a nested excludesfile element to be configured.
+     */
+    public NameEntry createExcludesFile() {
+        if (isReference()) {
+            throw noChildrenAllowed();
+        }
+        return addPatternToList(excludesFileList);
+    }
+
+    /**
+     * Appends <code>includes</code> to the current list of include patterns.
+     * Patterns may be separated by a comma or a space.
      *
      * @param includes the string containing the include patterns
      */
@@ -176,8 +299,8 @@ public class PatternSet extends DataType {
     }
 
     /**
-     * Sets the set of exclude patterns. Patterns may be separated by a comma
-     * or a space.
+     * Appends <code>excludes</code> to the current list of exclude patterns.
+     * Patterns may be separated by a comma or a space.
      *
      * @param excludes the string containing the exclude patterns
      */
@@ -196,92 +319,87 @@ public class PatternSet extends DataType {
     /**
      * add a name entry to the given list
      */
-    private NameEntry addPatternToList(Vector list) {
+    private NameEntry addPatternToList(List<NameEntry> list) {
         NameEntry result = new NameEntry();
-        list.addElement(result);
+        list.add(result);
         return result;
     }
 
     /**
      * Sets the name of the file containing the includes patterns.
      *
-     * @param incl The file to fetch the include patterns from.  
+     * @param includesFile The file to fetch the include patterns from.
+     * @throws BuildException on error.
      */
-     public void setIncludesfile(File incl) throws BuildException {
+     public void setIncludesfile(File includesFile) throws BuildException {
          if (isReference()) {
              throw tooManyAttributes();
          }
-         if (!incl.exists()) {
-             throw new BuildException("Includesfile "+incl.getAbsolutePath()
-                                      +" not found.");
-         } else {
-             readPatterns(incl, includeList);
-         }
+         createIncludesFile().setName(includesFile.getAbsolutePath());
      }
 
     /**
      * Sets the name of the file containing the excludes patterns.
      *
-     * @param excl The file to fetch the exclude patterns from.  
+     * @param excludesFile The file to fetch the exclude patterns from.
+     * @throws BuildException on error.
      */
-     public void setExcludesfile(File excl) throws BuildException {
+     public void setExcludesfile(File excludesFile) throws BuildException {
          if (isReference()) {
              throw tooManyAttributes();
          }
-         if (!excl.exists()) {
-             throw new BuildException("Excludesfile "+excl.getAbsolutePath()
-                                      +" not found.");
-         } else {
-             readPatterns(excl, excludeList);
-         }
+         createExcludesFile().setName(excludesFile.getAbsolutePath());
      }
-    
+
     /**
      *  Reads path matching patterns from a file and adds them to the
-     *  includes or excludes list (as appropriate).  
+     *  includes or excludes list (as appropriate).
      */
-    private void readPatterns(File patternfile, Vector patternlist)
-        throws BuildException {
-        
+    private void readPatterns(File patternfile, List<NameEntry> patternlist, Project p)
+            throws BuildException {
+
+        BufferedReader patternReader = null;
         try {
             // Get a FileReader
-            BufferedReader patternReader = 
-                new BufferedReader(new FileReader(patternfile)); 
-        
-            // Create one NameEntry in the appropriate pattern list for each 
+            patternReader = new BufferedReader(new FileReader(patternfile));
+
+            // Create one NameEntry in the appropriate pattern list for each
             // line in the file.
             String line = patternReader.readLine();
             while (line != null) {
                 if (line.length() > 0) {
+                    line = p.replaceProperties(line);
                     addPatternToList(patternlist).setName(line);
                 }
                 line = patternReader.readLine();
             }
-        } catch(IOException ioe)  {
-            String msg = "An error occured while reading from pattern file: " 
-                + patternfile;
-            throw new BuildException(msg, ioe);
+        } catch (IOException ioe)  {
+            throw new BuildException("An error occurred while reading from pattern file: "
+                    + patternfile, ioe);
+        } finally {
+            FileUtils.close(patternReader);
         }
     }
 
     /**
      * Adds the patterns of the other instance to this set.
+     * @param other the other PatternSet instance.
+     * @param p the current project.
      */
     public void append(PatternSet other, Project p) {
         if (isReference()) {
             throw new BuildException("Cannot append to a reference");
         }
-
+        dieOnCircularReference(p);
         String[] incl = other.getIncludePatterns(p);
         if (incl != null) {
-            for (int i=0; i<incl.length; i++) {
+            for (int i = 0; i < incl.length; i++) {
                 createInclude().setName(incl[i]);
             }
         }
-        
         String[] excl = other.getExcludePatterns(p);
         if (excl != null) {
-            for (int i=0; i<excl.length; i++) {
+            for (int i = 0; i < excl.length; i++) {
                 createExclude().setName(excl[i]);
             }
         }
@@ -289,71 +407,135 @@ public class PatternSet extends DataType {
 
     /**
      * Returns the filtered include patterns.
+     * @param p the current project.
+     * @return the filtered included patterns.
      */
     public String[] getIncludePatterns(Project p) {
         if (isReference()) {
             return getRef(p).getIncludePatterns(p);
-        } else {
-            return makeArray(includeList, p);
         }
+        dieOnCircularReference(p);
+        readFiles(p);
+        return makeArray(includeList, p);
     }
 
     /**
      * Returns the filtered include patterns.
+     * @param p the current project.
+     * @return the filtered excluded patterns.
      */
     public String[] getExcludePatterns(Project p) {
         if (isReference()) {
             return getRef(p).getExcludePatterns(p);
-        } else {
-            return makeArray(excludeList, p);
         }
+        dieOnCircularReference(p);
+        readFiles(p);
+        return makeArray(excludeList, p);
     }
 
     /**
-     * helper for FileSet.
+     * Helper for FileSet classes.
+     * Check if there are patterns defined.
+     * @param p the current project.
+     * @return true if there are patterns.
      */
-    int countPatterns() {
-        return includeList.size() + excludeList.size();
+    public boolean hasPatterns(Project p) {
+        if (isReference()) {
+            return getRef(p).hasPatterns(p);
+        }
+        dieOnCircularReference(p);
+        return includesFileList.size() > 0 || excludesFileList.size() > 0
+                || includeList.size() > 0 || excludeList.size() > 0;
     }
 
     /**
      * Performs the check for circular references and returns the
-     * referenced PatternSet.  
+     * referenced PatternSet.
      */
     private PatternSet getRef(Project p) {
-        if (!checked) {
-            Stack stk = new Stack();
-            stk.push(this);
-            dieOnCircularReference(stk, p);
-        }
-        
-        Object o = ref.getReferencedObject(p);
-        if (!(o instanceof PatternSet)) {
-            String msg = ref.getRefId()+" doesn\'t denote a patternset";
-            throw new BuildException(msg);
-        } else {
-            return (PatternSet) o;
-        }
+        return (PatternSet) getCheckedRef(p);
     }
 
     /**
      * Convert a vector of NameEntry elements into an array of Strings.
      */
-    private String[] makeArray(Vector list, Project p) {
-        if (list.size() == 0) return null;
-
-        Vector tmpNames = new Vector();
-        for (Enumeration e = list.elements() ; e.hasMoreElements() ;) {
-            NameEntry ne = (NameEntry)e.nextElement();
+    private String[] makeArray(List<NameEntry> list, Project p) {
+        if (list.size() == 0) {
+            return null;
+        }
+        ArrayList<String> tmpNames = new ArrayList<String>();
+        for (NameEntry ne : list) {
             String pattern = ne.evalName(p);
             if (pattern != null && pattern.length() > 0) {
-                tmpNames.addElement(pattern);
+                tmpNames.add(pattern);
             }
         }
-
-        String result[] = new String[tmpNames.size()];
-        tmpNames.copyInto(result);
-        return result;
+        return tmpNames.toArray(new String[tmpNames.size()]);
     }
-        
+
+    /**
+     * Read includesfile ot excludesfile if not already done so.
+     */
+    private void readFiles(Project p) {
+        if (includesFileList.size() > 0) {
+            for (NameEntry ne : includesFileList) {
+                String fileName = ne.evalName(p);
+                if (fileName != null) {
+                    File inclFile = p.resolveFile(fileName);
+                    if (!inclFile.exists()) {
+                        throw new BuildException("Includesfile " + inclFile.getAbsolutePath()
+                                + " not found.");
+                    }
+                    readPatterns(inclFile, includeList, p);
+                }
+            }
+            includesFileList.clear();
+        }
+        if (excludesFileList.size() > 0) {
+            for (NameEntry ne : excludesFileList) {
+                String fileName = ne.evalName(p);
+                if (fileName != null) {
+                    File exclFile = p.resolveFile(fileName);
+                    if (!exclFile.exists()) {
+                        throw new BuildException("Excludesfile " + exclFile.getAbsolutePath()
+                                + " not found.");
+                    }
+                    readPatterns(exclFile, excludeList, p);
+                }
+            }
+            excludesFileList.clear();
+        }
+    }
+
+    /**
+     * @return a printable form of this object.
+     */
+    public String toString() {
+        return "patternSet{ includes: " + includeList + " excludes: " + excludeList + " }";
+    }
+
+    /**
+     * @since Ant 1.6
+     * @return a clone of this patternset.
+     */
+    public Object clone() {
+        try {
+            PatternSet ps = (PatternSet) super.clone();
+            ps.includeList = new ArrayList<NameEntry>(includeList);
+            ps.excludeList = new ArrayList<NameEntry>(excludeList);
+            ps.includesFileList = new ArrayList<NameEntry>(includesFileList);
+            ps.excludesFileList = new ArrayList<NameEntry>(excludesFileList);
+            return ps;
+        } catch (CloneNotSupportedException e) {
+            throw new BuildException(e);
+        }
+    }
+
+    /**
+     * Add an inverted patternset.
+     * @param p the pattern to invert and add.
+     */
+    public void addConfiguredInvert(PatternSet p) {
+        addConfiguredPatternset(new InvertedPatternSet(p));
+    }
 }
